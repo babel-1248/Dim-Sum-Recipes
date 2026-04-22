@@ -22,7 +22,7 @@ jobs:
 
       - name: Create zip archive
         run: |
-          zip -r source.zip . \
+          zip -r recipes.zip . \
             --exclude '.git/*' \
             --exclude '.github/*'
 
@@ -31,5 +31,5 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: Release ${{ steps.version.outputs.tag }}
-          files: source.zip
+          files: recipes.zip
           generate_release_notes: true
