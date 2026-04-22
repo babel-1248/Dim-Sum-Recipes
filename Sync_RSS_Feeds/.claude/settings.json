@@ -1,0 +1,28 @@
+{
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": ["pachinko"],
+  "permissions": {
+    "allow": [
+      "mcp__pachinko__add_note",
+      "mcp__pachinko__delete_tool",
+      "mcp__pachinko__get_image",
+      "mcp__pachinko__get_note",
+      "mcp__pachinko__list_areas",
+      "mcp__pachinko__list_notes",
+      "mcp__pachinko__list_projects",
+      "mcp__pachinko__list_sections",
+      "mcp__pachinko__list_statuses",
+      "mcp__pachinko__move_note",
+      "mcp__pachinko__queue_runner",
+      "mcp__pachinko__set_note_due_date",
+      "mcp__pachinko__set_note_start_date",
+      "mcp__pachinko__set_note_status",
+      "mcp__pachinko__set_project_status",
+      "WebSearch",
+      "WebFetch",
+      "Bash(echo \"$OPML_FILE\")",
+      "Bash(python3 *)",
+      "Bash(curl *)"
+    ]
+  }
+}
