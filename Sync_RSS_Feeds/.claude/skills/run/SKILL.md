@@ -26,13 +26,13 @@ If the output is empty, stop and report: `OPML_FILE environment variable is not 
 
 ### 2. Load filter instructions
 
-Check whether `$FILTER_FILE` is set:
+Load the filter instructions using the `load_filter.py` script bundled with this skill:
 
 ```bash
-echo "$FILTER_FILE"
+python3 <SKILL_DIR>/load_filter.py
 ```
 
-If it is set, read the file contents and hold them in memory as the **filter instructions**. If it is not set or the file is empty, set filter instructions to `null` — all new articles will be added to Pachinko unconditionally.
+Capture the output. If the output is non-empty, hold it in memory as the **filter instructions**. If the output is empty (or the script exits with an error), set filter instructions to `null` — all new articles will be added to Pachinko unconditionally.
 
 ### 3. Load state
 
