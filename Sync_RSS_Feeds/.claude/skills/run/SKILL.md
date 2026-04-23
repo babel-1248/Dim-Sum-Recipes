@@ -6,6 +6,8 @@ Fetch new articles from every RSS/Atom feed listed in an OPML file, track which 
 
 The environment variable `OPML_FILE` must be set to the absolute path of the OPML file to read. If it is not set, stop immediately and tell the user to set it.
 
+The environment variable `FILTER_FILE` is optional. If set, it must point to a plain-text file containing filtering instructions that describe which articles are worth adding to Pachinko. Articles that do not match the filter are marked as seen but not added to Pachinko.
+
 ## State file
 
 All persistent state lives in `feed_state.json` in the project root (next to `CLAUDE.md`). It is a JSON object that maps each feed URL (string) to an array of article IDs (strings) that have already been processed. If the file does not exist, treat it as `{}`.
@@ -22,11 +24,21 @@ echo "$OPML_FILE"
 
 If the output is empty, stop and report: `OPML_FILE environment variable is not set.`
 
-### 2. Load state
+### 2. Load filter instructions
+
+Check whether `$FILTER_FILE` is set:
+
+```bash
+echo "$FILTER_FILE"
+```
+
+If it is set, read the file contents and hold them in memory as the **filter instructions**. If it is not set or the file is empty, set filter instructions to `null` — all new articles will be added to Pachinko unconditionally.
+
+### 3. Load state
 
 Read `feed_state.json` from the project root. If it does not exist, start with an empty object.
 
-### 3. Parse the OPML file
+### 4. Parse the OPML file
 
 Use a Bash + Python one-liner to extract all feed URLs from the OPML:
 
@@ -43,7 +55,7 @@ EOF
 
 Collect every URL that is printed. If none are found, report that the OPML contained no feeds and stop.
 
-### 4. For each feed URL
+### 5. For each feed URL
 
 For each feed URL collected above:
 
@@ -82,11 +94,13 @@ d. **Convert each new article to markdown** using this structure:
 
   Images must appear on their own lines (never inline within a paragraph). All other standard HTML elements (headings, bold, italic, links, lists, code, blockquote) should be converted to their markdown equivalents.
 - Append the `link` and `published` metadata as bold-label lines after a horizontal rule.
-- Call `mcp__pachinko__add_note` for each new article, passing the rendered markdown as the note content. If the call fails, log a warning and continue — do not abort the rest of the feed.
+- If filter instructions are set, evaluate the article against them using the article's title and converted markdown body. Decide **yes** (add to Pachinko) or **no** (skip) based solely on the filter instructions. If filter instructions are `null`, always decide yes.
+- If the decision is yes, call `mcp__pachinko__add_note`, passing the rendered markdown as the note content. If the call fails, log a warning and continue — do not abort the rest of the feed.
+- If the decision is no, mark the article as seen (step e still applies) but do not call `mcp__pachinko__add_note`.
 
 e. **Update seen IDs**: Replace `feed_state.json[feedUrl]` with exactly the set of article IDs returned by this fetch — do not merge with the previous list. This keeps the state file bounded to whatever the feed currently contains, so IDs for articles that have been removed from the feed are automatically pruned.
 
-### 5. Save updated state
+### 6. Save updated state
 
 Save the updated state by passing the JSON to the `save_state.py` script bundled with this skill. The script writes `feed_state.json` in the current directory (the project root):
 
@@ -96,10 +110,10 @@ python3 <SKILL_DIR>/save_state.py '<STATE_JSON>'
 
 where `<STATE_JSON>` is the full JSON object. Do **not** use the Write tool for this step.
 
-### 6. Report results
+### 7. Report results
 
 Print a summary:
 
-- For each feed: feed URL, number of new articles found, and the title + link of each new article.
-- Grand total: total new articles across all feeds.
+- For each feed: feed URL, number of new articles found, how many passed the filter and were added to Pachinko, and the title + link of each new article (noting which were filtered out).
+- Grand total: total new articles across all feeds, and total added to Pachinko.
 - Confirm that `feed_state.json` has been updated.

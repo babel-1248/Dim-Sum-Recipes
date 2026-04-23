@@ -21,6 +21,7 @@
       "WebSearch",
       "WebFetch",
       "Bash(echo \"$OPML_FILE\")",
+      "Bash(echo \"$FILTER_FILE\")",
       "Bash(python3 *)",
       "Bash(curl *)"
     ]
