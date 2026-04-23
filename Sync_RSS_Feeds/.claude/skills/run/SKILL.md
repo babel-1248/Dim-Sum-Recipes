@@ -102,13 +102,13 @@ e. **Update seen IDs**: Replace `feed_state.json[feedUrl]` with exactly the set 
 
 ### 6. Save updated state
 
-Save the updated state by passing the JSON to the `save_state.py` script bundled with this skill. The script writes `feed_state.json` in the current directory (the project root):
+Save the updated state by passing the JSON directly as an argument to the `save_state.py` script. The script writes `feed_state.json` in the current directory (the project root):
 
 ```bash
 python3 <SKILL_DIR>/save_state.py '<STATE_JSON>'
 ```
 
-where `<STATE_JSON>` is the full JSON object. Do **not** use the Write tool for this step.
+where `<STATE_JSON>` is the full JSON object. Pass it directly as a shell argument — do **not** pipe it through `xargs` or any other command. Do **not** use the Write tool for this step.
 
 ### 7. Report results
 
