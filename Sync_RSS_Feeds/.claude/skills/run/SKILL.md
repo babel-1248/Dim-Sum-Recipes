@@ -70,16 +70,34 @@ The script fetches the feed URL internally, parses it, compares article IDs agai
 
 If there are no new articles (empty output), move on to the next feed.
 
+**Large output handling:** When `check_feed.py` output is too large to display inline, the runtime saves it to a file and shows a path. In that case, use `get_article.py` to work with the file:
+
+```bash
+# List all articles (index, title, link, published — tab-separated):
+python3 <SKILL_DIR>/get_article.py <saved_file>
+
+# Get HTML content of article at index N (0-based), ready to pipe:
+python3 <SKILL_DIR>/get_article.py <saved_file> <N>
+```
+
+Use the list output to evaluate filter decisions. Use the content output (index N) to pipe into `html_to_markdown.py`. Obtain title, link, and published from the list output for the note metadata.
+
 b. **For each new article in the output**, optionally add to Pachinko:
 
 - If filter instructions are set, evaluate the article against them using the article's title and raw HTML `content` field. Decide **yes** (add to Pachinko) or **no** (skip). If filter instructions are `null`, always decide yes.
 - If no, the article is already marked as seen (state was saved in step a) — no further action needed.
-- If yes, convert the `content` field from HTML to markdown. Pipe the raw HTML via a quoted heredoc:
+- If yes, convert the `content` field from HTML to markdown. When output was inline, pipe the raw HTML via a quoted heredoc:
 
   ```bash
   python3 <SKILL_DIR>/html_to_markdown.py << 'HTMLEOF'
   {raw_html_content}
   HTMLEOF
+  ```
+
+  When output was saved to a file, use the `convert` mode of `get_article.py`:
+
+  ```bash
+  python3 <SKILL_DIR>/get_article.py <saved_file> <N> convert
   ```
 
   Use the script's output **verbatim** as the note body — do not rewrite, summarize, or simplify it. Images must appear on their own lines (never inline within a paragraph). All other standard HTML elements (headings, bold, italic, links, lists, code, blockquote) should be converted to their markdown equivalents.
