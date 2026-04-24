@@ -1,0 +1,16 @@
+{
+  "name": "Sync RSS Feeds",
+  "version": "1.0.0",
+  "variables": {
+    "OPML_FILE": {
+      "description": "The OPML file containing the list of RSS feeds to sync. This variable is required and must be set to a valid OPML file path or URL.",
+      "type": "file",
+      "required": true
+    },
+    "FILTER_FILE": {
+      "description": "An optional text file containing filter instructions for which articles to add to Pachinko. If set, the file should contain plain text instructions that can be evaluated against each article's title and content. If not set or empty, all articles will be added to Pachinko unconditionally.",
+      "type": "file",
+      "required": false
+    }
+  }
+}
