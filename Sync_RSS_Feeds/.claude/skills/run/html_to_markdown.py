@@ -126,6 +126,10 @@ class Converter(HTMLParser):
 
 
 def convert(html):
+    # html.parser treats <![CDATA[...]]> as an opaque block and swallows everything
+    # inside it, so strip the wrapper before parsing if present.
+    html = re.sub(r'^\s*<!\[CDATA\[', '', html)
+    html = re.sub(r'\]\]>\s*$', '', html)
     c = Converter()
     c.feed(html)
     return c.result()
