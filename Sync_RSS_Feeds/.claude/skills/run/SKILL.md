@@ -8,10 +8,6 @@ The environment variable `OPML_FILE` must be set to the absolute path of the OPM
 
 The environment variable `FILTER_FILE` is optional. If set, it must point to a plain-text file containing filtering instructions that describe which articles are worth adding to Pachinko. Articles that do not match the filter are marked as seen but not added to Pachinko.
 
-## State file
-
-All persistent state lives in `feed_state.json` in the project root (next to `CLAUDE.md`). It is a JSON object that maps each feed URL (string) to an array of article IDs (strings) that have already been processed. If the file does not exist, treat it as `{}`.
-
 ## Steps
 
 ### 1. Check environment variable
@@ -34,83 +30,71 @@ python3 <SKILL_DIR>/load_filter.py
 
 Capture the output. If the output is non-empty, hold it in memory as the **filter instructions**. If the output is empty (or the script exits with an error), set filter instructions to `null` — all new articles will be added to Pachinko unconditionally.
 
-### 3. Load state
+### 3. Parse the OPML file
 
-Read `feed_state.json` from the project root. If it does not exist, start with an empty object.
-
-### 4. Parse the OPML file
-
-Use a Bash + Python one-liner to extract all feed URLs from the OPML:
+Use the `parse_opml.py` script bundled with this skill:
 
 ```bash
-python3 - <<'EOF'
-import xml.etree.ElementTree as ET, os, sys
-tree = ET.parse(os.environ['OPML_FILE'])
-for el in tree.iter('outline'):
-    url = el.get('xmlUrl') or el.get('xmlurl')
-    if url:
-        print(url)
-EOF
+python3 <SKILL_DIR>/parse_opml.py
 ```
 
 Collect every URL that is printed. If none are found, report that the OPML contained no feeds and stop.
 
-### 5. For each feed URL
+### 4. For each feed URL
+
+**Process feeds one at a time, in sequence. Each feed must be its own separate `check_feed.py` invocation, issued as an individual tool call. Complete ALL sub-steps (check_feed → html_to_markdown → filter decision → add_note) for one feed before issuing the next `check_feed.py` call.**
+
+**This rule is absolute regardless of how many feeds are in the OPML file. Do NOT, under any circumstances:**
+- Write a wrapper script (bash, python, or otherwise) that loops over multiple feed URLs and calls `check_feed.py` for each.
+- Chain multiple `check_feed.py` invocations in a single bash command (via `for`, `while`, `xargs`, `&&`, `;`, pipelines, etc.).
+- Collect articles from multiple feeds into a batch before filtering/converting/adding them.
+- "Optimize" by fetching titles first across all feeds and doing content conversion later.
+
+Scale is never a reason to batch. If there are 500 feeds, that is 500 individual `check_feed.py` tool calls, each followed by its full sub-step chain before the next one. When reporting progress to the user, label each feed individually (e.g. "Feed 34: https://example.com/feed"). Do not group multiple feeds under a single heading.
 
 For each feed URL collected above:
 
-a. **Fetch the feed** using curl, saving to a temp file:
+a. **Fetch, parse, and save state** in one step using `check_feed.py`:
 
 ```bash
-curl -s --max-time 30 -A "Mozilla/5.0" "<FEED_URL>" -o /tmp/feed.xml && echo "OK" || echo "FAILED"
+python3 <SKILL_DIR>/check_feed.py <STATE_FILE_PATH> <FEED_URL> <SKILL_DIR>
 ```
 
-If the fetch fails, log a warning for that feed and continue to the next one.
+where `<STATE_FILE_PATH>` is the absolute path to `feed_state.json` in the project root.
 
-b. **Extract articles** from the temp file using the `parse_feed.py` script bundled with this skill (at `<SKILL_DIR>/parse_feed.py`):
+The script fetches the feed URL internally, parses it, compares article IDs against the seen list in state, **saves the updated state to disk immediately**, and prints results:
 
-```bash
-python3 <SKILL_DIR>/parse_feed.py < /tmp/feed.xml
-```
+- **No output** — no new articles (move on to the next feed)
+- **JSON array** — new articles found: `[{ "id": "...", "title": "...", "link": "...", "published": "...", "content": "..." }, ...]`
+- **`{"error": "..."}`** — fetch failed (log a warning and continue to the next feed)
 
-The script outputs a JSON array of objects with fields: `id`, `title`, `link`, `published`, `content`. Parse that JSON to get the article list.
+If there are no new articles (empty output), move on to the next feed.
 
-c. **Identify new articles**: Compare each article's `id` against the array stored in `feed_state.json` for this feed URL. An article is new if its `id` is NOT in that array.
+b. **For each new article in the output**, convert it to markdown and optionally add to Pachinko:
 
-d. **Convert each new article to markdown** using this structure:
+- Convert the `content` field from HTML to markdown. Write the raw HTML to `/tmp/article_content.html` using the Write tool, then run:
 
-```
-{content}
-
----
-**Link:** {link}
-**Published:** {published}
-```
-
-- Convert the `content` field from HTML to markdown by calling the `html_to_markdown.py` script bundled with this skill **once per article** as a separate Bash command — do not batch multiple articles into a single script:
   ```bash
-  echo "<CONTENT_HTML>" | python3 <SKILL_DIR>/html_to_markdown.py
+  python3 <SKILL_DIR>/html_to_markdown.py < /tmp/article_content.html
   ```
 
-  Images must appear on their own lines (never inline within a paragraph). All other standard HTML elements (headings, bold, italic, links, lists, code, blockquote) should be converted to their markdown equivalents.
-- Append the `link` and `published` metadata as bold-label lines after a horizontal rule.
-- If filter instructions are set, evaluate the article against them using the article's title and converted markdown body. Decide **yes** (add to Pachinko) or **no** (skip) based solely on the filter instructions. If filter instructions are `null`, always decide yes.
-- If the decision is yes, call `mcp__pachinko__add_note`, passing the rendered markdown as the note content. If the call fails, log a warning and continue — do not abort the rest of the feed.
-- If the decision is no, mark the article as seen (step e still applies) but do not call `mcp__pachinko__add_note`.
+  Use the script's output **verbatim** as the note body — do not rewrite, summarize, or simplify it. Images must appear on their own lines (never inline within a paragraph). All other standard HTML elements (headings, bold, italic, links, lists, code, blockquote) should be converted to their markdown equivalents.
 
-e. **Update seen IDs**: Replace `feed_state.json[feedUrl]` with exactly the set of article IDs returned by this fetch — do not merge with the previous list. This keeps the state file bounded to whatever the feed currently contains, so IDs for articles that have been removed from the feed are automatically pruned.
+- Append metadata after a horizontal rule:
 
-### 6. Save updated state
+  ```
+  {converted_content}
 
-Save the updated state by passing the JSON directly as an argument to the `save_state.py` script. The script writes `feed_state.json` in the current directory (the project root):
+  ---
+  **Link:** {link}
+  **Published:** {published}
+  ```
 
-```bash
-python3 <SKILL_DIR>/save_state.py '<STATE_JSON>'
-```
+- If filter instructions are set, evaluate the article against them using the article's title and converted markdown body. Decide **yes** (add to Pachinko) or **no** (skip). If filter instructions are `null`, always decide yes.
+- If yes, call `mcp__pachinko__add_note` with the rendered markdown. If the call fails, log a warning and continue.
+- If no, the article is already marked as seen (state was saved in step a) — no further action needed.
 
-where `<STATE_JSON>` is the full JSON object. Pass it directly as a shell argument — do **not** pipe it through `xargs` or any other command. Do **not** use the Write tool for this step.
-
-### 7. Report results
+### 5. Report results
 
 Print a summary:
 
