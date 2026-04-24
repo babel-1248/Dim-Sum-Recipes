@@ -70,12 +70,16 @@ The script fetches the feed URL internally, parses it, compares article IDs agai
 
 If there are no new articles (empty output), move on to the next feed.
 
-b. **For each new article in the output**, convert it to markdown and optionally add to Pachinko:
+b. **For each new article in the output**, optionally add to Pachinko:
 
-- Convert the `content` field from HTML to markdown. Write the raw HTML to `/tmp/article_content.html` using the Write tool, then run:
+- If filter instructions are set, evaluate the article against them using the article's title and raw HTML `content` field. Decide **yes** (add to Pachinko) or **no** (skip). If filter instructions are `null`, always decide yes.
+- If no, the article is already marked as seen (state was saved in step a) — no further action needed.
+- If yes, convert the `content` field from HTML to markdown. Pipe the raw HTML via a quoted heredoc:
 
   ```bash
-  python3 <SKILL_DIR>/html_to_markdown.py < /tmp/article_content.html
+  python3 <SKILL_DIR>/html_to_markdown.py << 'HTMLEOF'
+  {raw_html_content}
+  HTMLEOF
   ```
 
   Use the script's output **verbatim** as the note body — do not rewrite, summarize, or simplify it. Images must appear on their own lines (never inline within a paragraph). All other standard HTML elements (headings, bold, italic, links, lists, code, blockquote) should be converted to their markdown equivalents.
@@ -90,9 +94,7 @@ b. **For each new article in the output**, convert it to markdown and optionally
   **Published:** {published}
   ```
 
-- If filter instructions are set, evaluate the article against them using the article's title and converted markdown body. Decide **yes** (add to Pachinko) or **no** (skip). If filter instructions are `null`, always decide yes.
-- If yes, call `mcp__pachinko__add_note` with the rendered markdown. If the call fails, log a warning and continue.
-- If no, the article is already marked as seen (state was saved in step a) — no further action needed.
+- Call `mcp__pachinko__add_note` with the rendered markdown. If the call fails, log a warning and continue.
 
 ### 5. Report results
 
