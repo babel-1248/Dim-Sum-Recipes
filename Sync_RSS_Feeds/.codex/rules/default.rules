@@ -1,0 +1,35 @@
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/load_filter.py"],
+    decision = "allow",
+    justification = "Allow the bundled Sync RSS Feeds filter loader.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/parse_opml.py"],
+    decision = "allow",
+    justification = "Allow the bundled Sync RSS Feeds OPML parser.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/check_feed.py"],
+    decision = "allow",
+    justification = "Allow the bundled Sync RSS Feeds feed checker.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/get_article.py"],
+    decision = "allow",
+    justification = "Allow the bundled Sync RSS Feeds article extractor.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/html_to_markdown.py"],
+    decision = "allow",
+    justification = "Allow the bundled Sync RSS Feeds markdown converter.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/parse_feed.py"],
+    decision = "allow",
+    justification = "Allow the bundled Sync RSS Feeds feed parser.",
+)
