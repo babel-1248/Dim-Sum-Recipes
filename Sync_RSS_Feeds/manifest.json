@@ -1,6 +1,10 @@
 {
   "name": "Sync RSS Feeds",
   "version": "1.0.3",
+  "supportedAgents": [
+    "Claude Code",
+    "Codex"
+  ],
   "variables": {
     "OPML_FILE": {
       "description": "The OPML file containing the list of RSS feeds to sync. This variable is required and must be set to a valid OPML file path or URL.",
