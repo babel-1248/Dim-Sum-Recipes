@@ -1,0 +1,47 @@
+prefix_rule(
+    pattern = ["fieldtheory"],
+    decision = "allow",
+    justification = "Allow the fieldtheory CLI used by the XBookmarks recipe.",
+)
+
+prefix_rule(
+    pattern = ["command", "-v", "node"],
+    decision = "allow",
+    justification = "Allow checking whether Node.js is installed.",
+)
+
+prefix_rule(
+    pattern = ["command", "-v", "fieldtheory"],
+    decision = "allow",
+    justification = "Allow checking whether fieldtheory is installed.",
+)
+
+prefix_rule(
+    pattern = ["node", "--version"],
+    decision = "allow",
+    justification = "Allow checking the installed Node.js version.",
+)
+
+prefix_rule(
+    pattern = ["npm", "install", "-g", "fieldtheory"],
+    decision = "allow",
+    justification = "Allow installing the fieldtheory CLI if it is missing.",
+)
+
+prefix_rule(
+    pattern = [".claude/scripts/ft-read-bookmarks.sh"],
+    decision = "allow",
+    justification = "Allow reading the local fieldtheory bookmark cache.",
+)
+
+prefix_rule(
+    pattern = [".claude/scripts/ft-read-sent.sh"],
+    decision = "allow",
+    justification = "Allow reading the Pachinko sent-ID tracking file.",
+)
+
+prefix_rule(
+    pattern = [".claude/scripts/ft-append-sent.sh"],
+    decision = "allow",
+    justification = "Allow updating the Pachinko sent-ID tracking file.",
+)
