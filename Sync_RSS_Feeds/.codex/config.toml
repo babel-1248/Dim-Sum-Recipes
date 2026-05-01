@@ -5,5 +5,5 @@ sandbox_mode = "workspace-write"
 network_access = true
 
 [mcp_servers.pachinko]
-url = "http://localhost:3000/mcp"
+url = "http://localhost:3001/mcp"
 default_tools_approval_mode = "approve"
