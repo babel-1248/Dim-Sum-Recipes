@@ -20,7 +20,7 @@
       "mcp__pachinko__set_project_status",
       "WebSearch",
       "WebFetch",
-      "Bash(echo \"$OPML_FILE\")",
+      "Bash(echo \"$FEED_URL\")",
       "Bash(echo \"$FILTER_FILE\")",
       "Bash(python3 *)",
       "Bash(curl *)"
