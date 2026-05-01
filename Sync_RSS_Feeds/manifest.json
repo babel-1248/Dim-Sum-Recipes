@@ -6,9 +6,9 @@
     "Codex"
   ],
   "variables": {
-    "OPML_FILE": {
-      "description": "The OPML file containing the list of RSS feeds to sync. This variable is required and must be set to a valid OPML file path or URL.",
-      "type": "file",
+    "FEED_URL": {
+      "description": "The URL of the RSS feed to sync. This variable is required and must be set to a valid RSS feed URL.",
+      "type": "url",
       "required": true
     },
     "FILTER_FILE": {
