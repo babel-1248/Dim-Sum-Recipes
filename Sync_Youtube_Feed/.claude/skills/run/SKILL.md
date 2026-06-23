@@ -56,7 +56,7 @@ Capture the output. If the output is non-empty, hold it in memory as the **filte
 
 ### 4. Resolve the channel RSS feed URL
 
-Fetch the YouTube channel page with `curl`, then extract the RSS feed URL from the page's alternate RSS link:
+Fetch the Youtube channel page with `curl`, then extract the RSS feed URL from the page's alternate RSS link:
 
 ```bash
 CHANNEL_HTML_FILE="$(mktemp)"
