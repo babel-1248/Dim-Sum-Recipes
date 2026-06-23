@@ -17,6 +17,18 @@ prefix_rule(
 )
 
 prefix_rule(
+    pattern = ["command", "-v", "node"],
+    decision = "allow",
+    justification = "Allow checking whether Node.js is installed.",
+)
+
+prefix_rule(
+    pattern = ["node", "--version"],
+    decision = "allow",
+    justification = "Allow checking the installed Node.js version.",
+)
+
+prefix_rule(
     pattern = ["curl"],
     decision = "allow",
     justification = "Allow fetching the Youtube channel page to discover its RSS feed URL.",
@@ -50,10 +62,4 @@ prefix_rule(
     pattern = ["python3", "./.claude/skills/run/html_to_markdown.py"],
     decision = "allow",
     justification = "Allow the bundled Sync RSS Feeds markdown converter.",
-)
-
-prefix_rule(
-    pattern = ["python3", "./.claude/skills/run/parse_feed.py"],
-    decision = "allow",
-    justification = "Allow the bundled Sync RSS Feeds feed parser.",
 )

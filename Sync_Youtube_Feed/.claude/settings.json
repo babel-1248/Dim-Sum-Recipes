@@ -20,6 +20,8 @@
       "mcp__pachinko__set_project_status",
       "WebSearch",
       "WebFetch",
+      "Bash(command -v node)",
+      "Bash(node --version)",
       "Bash(echo \"$CHANNEL_URL\")",
       "Bash(echo \"$FILTER_FILE\")",
       "Bash(mktemp)",

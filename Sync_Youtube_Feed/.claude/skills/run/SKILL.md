@@ -10,7 +10,31 @@ The environment variable `FILTER_FILE` is optional. If set, it must point to a p
 
 ## Steps
 
-### 1. Check environment variable
+### 1. Check Node.js is installed
+
+Run:
+
+```!
+if ! command -v node &>/dev/null; then
+  echo "NODE_NOT_INSTALLED"
+else
+  NODE_VERSION="$(node --version)"
+  echo "NODE: $NODE_VERSION"
+  NODE_MAJOR="${NODE_VERSION#v}"
+  NODE_MAJOR="${NODE_MAJOR%%.*}"
+  if [ "$NODE_MAJOR" -lt 20 ]; then
+    echo "NODE_VERSION_TOO_OLD"
+  else
+    echo "NODE_VERSION_OK"
+  fi
+fi
+```
+
+If `NODE_NOT_INSTALLED`: tell the user to install Node.js 20+ first (via https://nodejs.org or `brew install node`) and stop. Do not proceed.
+
+If `NODE_VERSION_TOO_OLD`: tell the user that Node.js 20+ is required, report the installed version, and stop. Do not proceed.
+
+### 2. Check environment variable
 
 Run:
 
@@ -20,7 +44,7 @@ echo "$CHANNEL_URL"
 
 If the output is empty, stop and report: `CHANNEL_URL environment variable is not set.`
 
-### 2. Load filter instructions
+### 3. Load filter instructions
 
 Load the filter instructions using the `load_filter.py` script bundled with this skill:
 
@@ -30,7 +54,7 @@ python3 <SKILL_DIR>/load_filter.py
 
 Capture the output. If the output is non-empty, hold it in memory as the **filter instructions**. If the output is empty (or the script exits with an error), set filter instructions to `null` — all new videos will be added to Pachinko unconditionally.
 
-### 3. Resolve the channel RSS feed URL
+### 4. Resolve the channel RSS feed URL
 
 Fetch the YouTube channel page with `curl`, then extract the RSS feed URL from the page's alternate RSS link:
 
@@ -48,7 +72,7 @@ The extractor looks for:
 
 Capture the script output as `FEED_URL`. If `curl` fails, or if `extract_feed_url.py` reports that no RSS alternate link was found, report the error and stop.
 
-### 4. Fetch and process the feed
+### 5. Fetch and process the feed
 
 **Fetch, parse, and save state** in one step using `check_feed.py`:
 
@@ -78,10 +102,10 @@ python3 <SKILL_DIR>/get_video.py <videos_file> <N>
 
 Use the list output to evaluate filter decisions. Obtain title, link, published, and description from the list output for the note metadata.
 
-### 5. For each new video in the output
+### 6. For each new video in the output
 
 - If filter instructions are set, evaluate the video against them using the video's title and feed description. Decide **yes** (add to Pachinko) or **no** (skip). If filter instructions are `null`, always decide yes.
-- If no, the video is already marked as seen (state was saved in step 4) — no further action needed.
+- If no, the video is already marked as seen (state was saved in step 5) — no further action needed.
 - If yes, fetch the video link and extract the page content as markdown with Defuddle through `get_video.py`:
 
   ```bash
@@ -101,7 +125,7 @@ Use the list output to evaluate filter decisions. Obtain title, link, published,
   ```
 - Call `mcp__pachinko__add_note` with the rendered markdown. If the call fails, log a warning and continue.
 
-### 6. Report results
+### 7. Report results
 
 Print a summary:
 
