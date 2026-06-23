@@ -2,11 +2,11 @@
 Usage: python3 check_feed.py <state_file> <feed_url> <skill_dir>
 
 Fetches <feed_url>, parses it, compares against seen IDs in <state_file>,
-saves updated state, and prints only new articles as JSON.
+saves updated state, and prints only new videos as JSON.
 
-Prints nothing (empty output) if there are no new articles.
-Prints a JSON array of new articles if any are found:
-  [{ "id": "...", "title": "...", "link": "...", "published": "...", "content": "..." }, ...]
+Prints nothing (empty output) if there are no new videos.
+Prints a JSON array of new videos if any are found:
+  [{ "id": "...", "title": "...", "link": "...", "published": "...", "description": "..." }, ...]
 
 On fetch failure prints: {"error": "..."}
 """
@@ -38,11 +38,11 @@ proc = subprocess.run(
     capture_output=True,
     text=True,
 )
-articles = json.loads(proc.stdout) if proc.stdout.strip() else []
+videos = json.loads(proc.stdout) if proc.stdout.strip() else []
 
 seen    = set(state.get(feed_url, []))
-new     = [a for a in articles if a['id'] not in seen]
-all_ids = [a['id'] for a in articles]
+new     = [v for v in videos if v['id'] not in seen]
+all_ids = [v['id'] for v in videos]
 
 # Save state immediately
 state[feed_url] = all_ids
@@ -50,6 +50,6 @@ with open(state_path, 'w') as f:
     json.dump(state, f, indent=2)
     f.write('\n')
 
-# Only print if there are new articles
+# Only print if there are new videos
 if new:
     print(json.dumps(new))

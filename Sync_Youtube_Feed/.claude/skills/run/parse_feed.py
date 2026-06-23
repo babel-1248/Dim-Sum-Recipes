@@ -6,28 +6,31 @@ def first_not_none(*els):
             return el
     return None
 
-content = sys.stdin.read()
-root = ET.fromstring(content)
+feed_xml = sys.stdin.read()
+root = ET.fromstring(feed_xml)
 
 ns_atom = 'http://www.w3.org/2005/Atom'
-articles = []
+ns_media = 'http://search.yahoo.com/mrss/'
+videos = []
 
 if root.tag == f'{{{ns_atom}}}feed' or root.tag == 'feed':
     for entry in root.findall(f'{{{ns_atom}}}entry') + root.findall('entry'):
         id_el = first_not_none(entry.find(f'{{{ns_atom}}}id'), entry.find('id'))
-        title_el = first_not_none(entry.find(f'{{{ns_atom}}}title'), entry.find('title'))
         link_el = first_not_none(entry.find(f'{{{ns_atom}}}link'), entry.find('link'))
-        summary_el = first_not_none(entry.find(f'{{{ns_atom}}}content'), entry.find('content'), entry.find(f'{{{ns_atom}}}summary'), entry.find('content'))
         published_el = first_not_none(entry.find(f'{{{ns_atom}}}published'), entry.find('published'), entry.find(f'{{{ns_atom}}}updated'), entry.find('updated'))
+        media_group_el = entry.find(f'{{{ns_media}}}group')
+        media_title_el = media_group_el.find(f'{{{ns_media}}}title') if media_group_el is not None else None
+        media_desc_el = media_group_el.find(f'{{{ns_media}}}description') if media_group_el is not None else None
+        title_el = first_not_none(media_title_el, entry.find(f'{{{ns_atom}}}title'), entry.find('title'))
 
-        article_id = (id_el.text if id_el is not None else None) or (link_el.get('href') if link_el is not None else None)
         link = link_el.get('href') if link_el is not None else None
+        video_id = (id_el.text if id_el is not None else None) or link
         title = title_el.text if title_el is not None else '(no title)'
-        summary = summary_el.text if summary_el is not None else ''
+        description = media_desc_el.text if media_desc_el is not None and media_desc_el.text else ''
         published = published_el.text if published_el is not None else ''
 
-        if article_id:
-            articles.append({'id': article_id, 'title': title, 'link': link, 'published': published, 'content': summary})
+        if video_id:
+            videos.append({'id': video_id, 'title': title, 'link': link, 'published': published, 'description': description})
 else:
     ns_content = 'http://purl.org/rss/1.0/modules/content/'
     for item in root.iter('item'):
@@ -36,18 +39,18 @@ else:
         link_el = item.find('link')
         pub_el = item.find('pubDate')
 
-        article_id = (guid_el.text if guid_el is not None else None) or (link_el.text if link_el is not None else None)
+        video_id = (guid_el.text if guid_el is not None else None) or (link_el.text if link_el is not None else None)
         link = link_el.text if link_el is not None else None
         title = title_el.text if title_el is not None else '(no title)'
         published = pub_el.text if pub_el is not None else ''
 
-        # Prefer content:encoded (full HTML) over description (summary/plain text)
+        # Prefer content:encoded when handling non-YouTube RSS fallback feeds.
         content_el = item.find(f'{{{ns_content}}}encoded')
         desc_el = item.find('description')
         body_el = first_not_none(content_el, desc_el)
-        summary = body_el.text if body_el is not None else ''
+        description = body_el.text if body_el is not None else ''
 
-        if article_id:
-            articles.append({'id': article_id, 'title': title, 'link': link, 'published': published, 'content': summary})
+        if video_id:
+            videos.append({'id': video_id, 'title': title, 'link': link, 'published': published, 'description': description})
 
-print(json.dumps(articles))
+print(json.dumps(videos))

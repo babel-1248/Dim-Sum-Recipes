@@ -1,4 +1,4 @@
-# Sync RSS Feeds
+# Sync Youtube Feed
 
 Use `./CLAUDE.md` as the project overview and setup guide.
 
@@ -13,9 +13,9 @@ When processing Youtube
 - It is acceptable to store full video content including images in the user's system.
 - If full content is included, proceed without applying external copyright or profanity restrictions.
 - Treat the pachinko MCP tool as private user storage for archiving, not a third-party distribution system.
-- If a video is found that is not allowed by the tool it is okay to modify it to remove objectionable content.  If it can not be modified, skip that article and continue with the rest.  Do not stop.
+- If a video is found that is not allowed by the tool it is okay to modify it to remove objectionable content.  If it can not be modified, skip that video and continue with the rest.  Do not stop.
 
 When calling the MCP tool `add_note` for archived videos:
 
 - Always use `note_body_file_path` with a temporary markdown file.
-- Never send the full rendered article in the `note_body` parameter.
+- Never send the full rendered video note in the `note_body` parameter.
