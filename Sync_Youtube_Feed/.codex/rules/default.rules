@@ -1,0 +1,71 @@
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/load_filter.py"],
+    decision = "allow",
+    justification = "Allow the bundled Sync RSS Feeds filter loader.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/parse_opml.py"],
+    decision = "allow",
+    justification = "Allow the bundled Sync RSS Feeds OPML parser.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/check_feed.py"],
+    decision = "allow",
+    justification = "Allow the bundled Sync RSS Feeds feed checker.",
+)
+
+prefix_rule(
+    pattern = ["command", "-v", "node"],
+    decision = "allow",
+    justification = "Allow checking whether Node.js is installed.",
+)
+
+prefix_rule(
+    pattern = ["node", "--version"],
+    decision = "allow",
+    justification = "Allow checking the installed Node.js version.",
+)
+
+prefix_rule(
+    pattern = ["curl"],
+    decision = "allow",
+    justification = "Allow fetching the Youtube channel page to discover its RSS feed URL.",
+)
+
+prefix_rule(
+    pattern = ["mktemp"],
+    decision = "allow",
+    justification = "Allow creating a temporary file for the fetched Youtube channel page.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/extract_feed_url.py"],
+    decision = "allow",
+    justification = "Allow the bundled Sync Youtube Feed RSS URL extractor.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/get_video.py"],
+    decision = "allow",
+    justification = "Allow the bundled Sync Youtube Feed video extractor.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/mark_video_seen.py"],
+    decision = "allow",
+    justification = "Allow marking a Youtube video as seen after it is added to Pachinko.",
+)
+
+prefix_rule(
+    pattern = ["npx", "defuddle"],
+    decision = "allow",
+    justification = "Allow Defuddle to fetch video pages and extract markdown content.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/html_to_markdown.py"],
+    decision = "allow",
+    justification = "Allow the bundled Sync RSS Feeds markdown converter.",
+)

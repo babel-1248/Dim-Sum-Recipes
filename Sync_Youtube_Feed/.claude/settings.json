@@ -1,0 +1,38 @@
+{
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": ["pachinko"],
+  "permissions": {
+    "allow": [
+      "mcp__pachinko__add_note",
+      "mcp__pachinko__delete_tool",
+      "mcp__pachinko__get_image",
+      "mcp__pachinko__get_note",
+      "mcp__pachinko__list_areas",
+      "mcp__pachinko__list_notes",
+      "mcp__pachinko__list_projects",
+      "mcp__pachinko__list_sections",
+      "mcp__pachinko__list_statuses",
+      "mcp__pachinko__move_note",
+      "mcp__pachinko__queue_function",
+      "mcp__pachinko__set_note_due_date",
+      "mcp__pachinko__set_note_start_date",
+      "mcp__pachinko__set_note_status",
+      "mcp__pachinko__set_project_status",
+      "WebSearch",
+      "WebFetch",
+      "Bash(command -v node)",
+      "Bash(node --version)",
+      "Bash(echo \"$CHANNEL_URL\")",
+      "Bash(echo \"$FILTER_FILE\")",
+      "Bash(mktemp)",
+      "Bash(curl *)",
+      "Bash(python3 ./.claude/skills/run/extract_feed_url.py *)",
+      "Bash(python3 ./.claude/skills/run/get_video.py *)",
+      "Bash(python3 ./.claude/skills/run/mark_video_seen.py *)",
+      "Bash(npx defuddle *)",
+      "Bash(echo \"$FEED_ID\")",
+      "Bash(echo \"$QUEUE_FUNCTION_IDS\")",
+      "Bash(echo \"$SAVE_TO_PROJECT_ID\")"
+    ]
+  }
+}
