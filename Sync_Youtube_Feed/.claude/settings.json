@@ -28,6 +28,7 @@
       "Bash(curl *)",
       "Bash(python3 ./.claude/skills/run/extract_feed_url.py *)",
       "Bash(python3 ./.claude/skills/run/get_video.py *)",
+      "Bash(python3 ./.claude/skills/run/mark_video_seen.py *)",
       "Bash(npx defuddle *)",
       "Bash(echo \"$FEED_ID\")",
       "Bash(echo \"$QUEUE_FUNCTION_IDS\")",

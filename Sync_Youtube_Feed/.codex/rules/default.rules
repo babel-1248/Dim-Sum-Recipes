@@ -53,6 +53,12 @@ prefix_rule(
 )
 
 prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/mark_video_seen.py"],
+    decision = "allow",
+    justification = "Allow marking a Youtube video as seen after it is added to Pachinko.",
+)
+
+prefix_rule(
     pattern = ["npx", "defuddle"],
     decision = "allow",
     justification = "Allow Defuddle to fetch video pages and extract markdown content.",

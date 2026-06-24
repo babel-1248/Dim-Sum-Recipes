@@ -2,11 +2,11 @@
 Usage: python3 check_feed.py <state_file> <feed_url> <skill_dir>
 
 Fetches <feed_url>, parses it, compares against seen IDs in <state_file>,
-saves updated state, and prints only new videos as JSON.
+and prints only new videos as JSON. It does not update state.
 
 Prints nothing (empty output) if there are no new videos.
 Prints a JSON array of new videos if any are found:
-  [{ "id": "...", "title": "...", "link": "...", "published": "...", "description": "..." }, ...]
+  [{ "id": "...", "title": "...", "link": "...", "published": "...", "description": "...", "thumbnail": "..." }, ...]
 
 On fetch failure prints: {"error": "..."}
 """
@@ -36,16 +36,18 @@ def parse_videos(feed_xml):
             media_group_el = entry.find(f'{{{ns_media}}}group')
             media_title_el = media_group_el.find(f'{{{ns_media}}}title') if media_group_el is not None else None
             media_desc_el = media_group_el.find(f'{{{ns_media}}}description') if media_group_el is not None else None
+            media_thumbnail_el = media_group_el.find(f'{{{ns_media}}}thumbnail') if media_group_el is not None else None
             title_el = first_not_none(media_title_el, entry.find(f'{{{ns_atom}}}title'), entry.find('title'))
 
             link = link_el.get('href') if link_el is not None else None
             video_id = (id_el.text if id_el is not None else None) or link
             title = title_el.text if title_el is not None else '(no title)'
             description = media_desc_el.text if media_desc_el is not None and media_desc_el.text else ''
+            thumbnail = media_thumbnail_el.get('url') if media_thumbnail_el is not None else ''
             published = published_el.text if published_el is not None else ''
 
             if video_id:
-                videos.append({'id': video_id, 'title': title, 'link': link, 'published': published, 'description': description})
+                videos.append({'id': video_id, 'title': title, 'link': link, 'published': published, 'description': description, 'thumbnail': thumbnail})
     else:
         ns_content = 'http://purl.org/rss/1.0/modules/content/'
         for item in root.iter('item'):
@@ -65,7 +67,7 @@ def parse_videos(feed_xml):
             description = body_el.text if body_el is not None else ''
 
             if video_id:
-                videos.append({'id': video_id, 'title': title, 'link': link, 'published': published, 'description': description})
+                videos.append({'id': video_id, 'title': title, 'link': link, 'published': published, 'description': description, 'thumbnail': ''})
 
     return videos
 
@@ -95,14 +97,6 @@ except Exception as e:
 
 seen    = set(state.get(feed_url, []))
 new     = [v for v in videos if v['id'] not in seen]
-all_ids = [v['id'] for v in videos]
-
-# Save state immediately
-state[feed_url] = all_ids
-with open(state_path, 'w') as f:
-    json.dump(state, f, indent=2)
-    f.write('\n')
-
 # Only print if there are new videos
 if new:
     print(json.dumps(new))

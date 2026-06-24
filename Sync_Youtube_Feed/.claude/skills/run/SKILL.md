@@ -74,7 +74,7 @@ Capture the script output as `FEED_URL`. If `curl` fails, or if `extract_feed_ur
 
 ### 5. Fetch and process the feed
 
-**Fetch, parse, and save state** in one step using `check_feed.py`:
+**Fetch and parse the feed** using `check_feed.py`:
 
 ```bash
 python3 <SKILL_DIR>/check_feed.py <STATE_FILE_PATH> "$FEED_URL" <SKILL_DIR>
@@ -82,10 +82,10 @@ python3 <SKILL_DIR>/check_feed.py <STATE_FILE_PATH> "$FEED_URL" <SKILL_DIR>
 
 where `<STATE_FILE_PATH>` is the absolute path to `feed_state.json` in the project root.
 
-The script fetches the feed URL internally, parses it, compares video IDs against the seen list in state, **saves the updated state to disk immediately**, and prints results:
+The script fetches the feed URL internally, parses it, compares video IDs against the seen list in state, does **not** update state, and prints results:
 
 - **No output** — no new videos
-- **JSON array** — new videos found: `[{ "id": "...", "title": "...", "link": "...", "published": "...", "description": "..." }, ...]`
+- **JSON array** — new videos found: `[{ "id": "...", "title": "...", "link": "...", "published": "...", "description": "...", "thumbnail": "..." }, ...]`
 - **`{"error": "..."}`** — fetch failed (report the error and stop)
 
 If there are no new videos (empty output), report that and stop.
@@ -93,41 +93,58 @@ If there are no new videos (empty output), report that and stop.
 Save the JSON array to a temporary file and use `get_video.py` to work with it. When `check_feed.py` output is too large to display inline, the runtime saves it to a file and shows a path; use that saved file as `<videos_file>`.
 
 ```bash
-# List all videos (index, title, link, published — tab-separated):
+# List all videos (index, title, link, published, thumbnail, description — tab-separated):
 python3 <SKILL_DIR>/get_video.py <videos_file>
 
 # Get feed description of video at index N (0-based):
 python3 <SKILL_DIR>/get_video.py <videos_file> <N>
 ```
 
-Use the list output to evaluate filter decisions. Obtain title, link, published, and description from the list output for the note metadata.
+Use the list output to evaluate filter decisions. Obtain title, link, published, thumbnail, and description from the list output for the note metadata.
 
-### 6. For each new video in the output
+### 6. Extract video content and transcript with Defuddle, then write markdown notes
 
 - If filter instructions are set, evaluate the video against them using the video's title and feed description. Decide **yes** (add to Pachinko) or **no** (skip). If filter instructions are `null`, always decide yes.
-- If no, the video is already marked as seen (state was saved in step 5) — no further action needed.
-- If yes, fetch the video link and extract the page content as markdown with Defuddle through `get_video.py`:
+- If no, do not mark the video as seen and do not add it to Pachinko.
+- If yes, fetch the video link and use Defuddle through `get_video.py` to extract the video page content and transcript as markdown:
 
   ```bash
   python3 <SKILL_DIR>/get_video.py <videos_file> <N> markdown
   ```
 
-  This runs `npx defuddle parse <link> --markdown`. Use the script's output **verbatim** as the note body — do not rewrite, summarize, or simplify it.
+  This runs `npx defuddle parse <link> --markdown` to extract the video page content and transcript, prepends the video title as a level 1 header, and then prepends the `media:thumbnail` image from the feed when one is present. Use the script's output **verbatim** as the note body — do not rewrite, summarize, or simplify it.
+- The rendered note body must be structured as:
+
+  ```
+  # {title}
+
+  ![{title}]({thumbnail})
+
+  {defuddle_markdown}
+  ```
+
 - Append metadata after a horizontal rule:
 
   ```
-  {defuddle_markdown}
+  {rendered_note_body}
 
   ---
   **Link:** {link}
   **Published:** {published}
   **Description:** {description}
   ```
-- Call `mcp__pachinko__add_note` with the rendered markdown. If the call fails, log a warning and continue.
+- Write the full rendered markdown to a temporary `.md` file, then call `mcp__pachinko__add_note` with `note_body_file_path` pointing to that file. Never send the full rendered video note in the `note_body` parameter. If the call fails, log a warning and continue.
+- After `mcp__pachinko__add_note` succeeds, mark only that video as seen:
+
+  ```bash
+  python3 <SKILL_DIR>/mark_video_seen.py <STATE_FILE_PATH> "$FEED_URL" "{video_id}"
+  ```
+
+  Do not update `feed_state.json` before the note has been successfully added.
 
 ### 7. Report results
 
 Print a summary:
 
 - Channel URL, resolved feed URL, number of new videos found, how many passed the filter and were added to Pachinko, and the title + link of each new video (noting which were filtered out).
-- Confirm that `feed_state.json` has been updated.
+- Confirm that `feed_state.json` has been updated only for videos successfully added to Pachinko.
