@@ -1,6 +1,6 @@
 {
   "name": "Custom Prompt",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "supportedAgents": [
     "Claude Code",
     "Codex"
