@@ -2,7 +2,7 @@
 Usage: python3 check_feed.py <state_file> <feed_url> <skill_dir>
 
 Fetches <feed_url>, parses it, compares against seen IDs in <state_file>,
-saves updated state, and prints only new articles as JSON.
+and prints only new articles as JSON. This script does not modify state.
 
 Prints nothing (empty output) if there are no new articles.
 Prints a JSON array of new articles if any are found:
@@ -40,15 +40,8 @@ proc = subprocess.run(
 )
 articles = json.loads(proc.stdout) if proc.stdout.strip() else []
 
-seen    = set(state.get(feed_url, []))
-new     = [a for a in articles if a['id'] not in seen]
-all_ids = [a['id'] for a in articles]
-
-# Save state immediately
-state[feed_url] = all_ids
-with open(state_path, 'w') as f:
-    json.dump(state, f, indent=2)
-    f.write('\n')
+seen = set(state.get(feed_url, []))
+new = [a for a in articles if a['id'] not in seen]
 
 # Only print if there are new articles
 if new:

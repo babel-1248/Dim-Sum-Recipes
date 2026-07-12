@@ -45,3 +45,9 @@ prefix_rule(
     decision = "allow",
     justification = "Allow updating the Pachinko sent-ID tracking file.",
 )
+
+prefix_rule(
+    pattern = [".claude/scripts/read_environment.py"],
+    decision = "allow",
+    justification = "Allow reading the Pachinko routing environment configuration as JSON.",
+)

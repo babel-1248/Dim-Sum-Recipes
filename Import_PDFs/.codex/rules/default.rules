@@ -57,3 +57,9 @@ prefix_rule(
     decision = "allow",
     justification = "Allow installing the anthropic Python package to the local .packages directory.",
 )
+
+prefix_rule(
+    pattern = [".claude/scripts/read_environment.py"],
+    decision = "allow",
+    justification = "Allow reading the Pachinko routing environment configuration as JSON.",
+)

@@ -10,9 +10,7 @@
       "Bash(echo \"$FILTER_FILE\")",
       "Bash(python3 *)",
       "Bash(curl *)",
-      "Bash(echo \"$FEED_ID\")",
-      "Bash(echo \"$QUEUE_FUNCTION_IDS\")",
-      "Bash(echo \"$SAVE_TO_PROJECT_ID\")"
+      "Bash(.claude/scripts/read_environment.py)"
     ]
   }
 }

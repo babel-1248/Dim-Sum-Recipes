@@ -9,3 +9,9 @@ prefix_rule(
     decision = "allow",
     justification = "Allow inline Python for reading and writing the news_flash_state.json state file.",
 )
+
+prefix_rule(
+    pattern = [".claude/scripts/read_environment.py"],
+    decision = "allow",
+    justification = "Allow reading the Pachinko routing environment configuration as JSON.",
+)
