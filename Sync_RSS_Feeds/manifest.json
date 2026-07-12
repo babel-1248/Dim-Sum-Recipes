@@ -1,6 +1,6 @@
 {
   "name": "Sync RSS Feeds",
-  "version": "1.0.9",
+  "version": "1.0.11",
   "supportedAgents": [
     "Claude Code",
     "Codex"
