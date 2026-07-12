@@ -25,9 +25,7 @@
       "Bash(sed 's/^.*\\\\[$/[/')",
       "WebSearch",
       "WebFetch",
-      "Bash(echo \"$FEED_ID\")",
-      "Bash(echo \"$QUEUE_FUNCTION_IDS\")",
-      "Bash(echo \"$SAVE_TO_PROJECT_ID\")"
+      "Bash(.claude/scripts/read_environment.py)"
     ]
   }
 }

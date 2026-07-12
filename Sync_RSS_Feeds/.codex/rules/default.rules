@@ -33,3 +33,9 @@ prefix_rule(
     decision = "allow",
     justification = "Allow the bundled Sync RSS Feeds feed parser.",
 )
+
+prefix_rule(
+    pattern = [".claude/scripts/read_environment.py"],
+    decision = "allow",
+    justification = "Allow reading the Pachinko routing environment configuration as JSON.",
+)
