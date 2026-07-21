@@ -1,4 +1,5 @@
 {
+  "disableWorkflows": true,
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": ["pachinko"],
   "permissions": {
