@@ -1,0 +1,7 @@
+{
+  "name": "Sync Strava",
+  "version": "1.0.0",
+  "supportedAgents": [
+    "Claude Code"
+  ]
+}

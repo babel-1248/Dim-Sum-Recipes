@@ -1,0 +1,16 @@
+{
+  "disableWorkflows": true,
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": ["pachinko", "strava"],
+  "permissions": {
+    "allow": [
+      "mcp__pachinko__*",
+      "mcp__strava__*",
+      "Bash(claude mcp get strava)",
+      "Bash(claude mcp login strava)",
+      "Bash(.claude/scripts/read_environment.py)",
+      "Bash(.claude/skills/run/load_synced_workouts.py)",
+      "Bash(.claude/skills/run/mark_workout_synced.py:*)"
+    ]
+  }
+}
