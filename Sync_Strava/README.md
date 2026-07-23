@@ -2,7 +2,7 @@
 
 A Claude Code recipe for syncing Strava data through Strava's remote MCP server and saving it to Pachinko.
 
-The recipe configures both Strava at `https://mcp.strava.com/mcp` and the local Pachinko MCP server at `http://localhost:3000/mcp`. On each run, it verifies the Strava connection before using Strava. When authentication is needed, Claude Code opens the Strava OAuth page in the default browser and waits for authorization to finish.
+The recipe configures both Strava at `https://mcp.strava.com/mcp` and the local Pachinko MCP server at `http://localhost:3000/mcp`. On each run, it verifies the Strava connection before using Strava. When authentication is needed during a non-interactive `claude -p` run, it first uses Claude's in-process OAuth function when available. If that function is absent, the recipe opens a real macOS Terminal running `claude --settings .claude/settings.json mcp login strava`, waits for browser authorization to finish, and asks the original session to refresh its Strava tools.
 
 ## Sync behavior
 

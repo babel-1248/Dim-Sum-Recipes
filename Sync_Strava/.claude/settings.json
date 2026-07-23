@@ -6,9 +6,11 @@
     "allow": [
       "mcp__pachinko__*",
       "mcp__strava__*",
-      "Bash(claude mcp get strava)",
-      "Bash(claude mcp login strava)",
+      "ToolSearch",
+      "Bash(claude --settings .claude/settings.json mcp get strava)",
       "Bash(.claude/scripts/read_environment.py)",
+      "Bash(.claude/skills/run/login_strava_terminal.py)",
+      "Bash(.claude/skills/run/open_strava_auth.py:*)",
       "Bash(.claude/skills/run/load_synced_workouts.py)",
       "Bash(.claude/skills/run/mark_workout_synced.py:*)"
     ]

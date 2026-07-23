@@ -16,7 +16,9 @@ Say **"run"** to execute the recipe.
 
 The Strava MCP server is configured as `strava` at `https://mcp.strava.com/mcp`.
 
-When the user says `run`, follow `.claude/skills/run/SKILL.md` exactly. Its authentication gate is mandatory: do not call any `mcp__strava__*` function until the server has been verified as connected. If authentication is required, use the foreground `claude mcp login strava` flow so the default browser opens and the recipe waits for the user to finish authorization.
+When the user says `run`, follow `.claude/skills/run/SKILL.md` exactly. Its authentication gate is mandatory: do not call Strava data functions until the server has been verified as connected. If authentication is required in a `-p` session, prefer the current process's synthetic Strava authentication tool when it is exposed. If it is not exposed, use the bundled Terminal helper, which launches a real interactive macOS Terminal running `claude --settings .claude/settings.json mcp login strava` while the original process waits. After either route succeeds, refresh the real Strava tools with `ToolSearch`.
+
+When checking MCP status from Bash, always pass `--settings .claude/settings.json` to the `claude` command. The standalone MCP subcommand does not reliably apply project approval settings unless they are passed explicitly; its bare `Pending approval` result is not authoritative for this recipe.
 
 After authentication, the run skill syncs Strava activities into the `workout history` section of the configured project, or the inbox when no project is configured. Treat `.claude/skills/run/SKILL.md` as the source of truth for destination resolution, duplicate detection, note formatting, and failure handling.
 
