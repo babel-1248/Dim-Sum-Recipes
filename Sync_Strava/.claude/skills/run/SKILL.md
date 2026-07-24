@@ -7,7 +7,7 @@ description: Sync Strava workout history into a Pachinko section after verifying
 
 ## Authentication gate
 
-Complete this gate before calling any Strava data function. The synthetic Strava authentication function is the only `mcp__strava__*` function allowed before this gate succeeds.
+Complete this gate before calling any Strava data function.
 
 1. Check the Strava MCP server's connection state while explicitly applying the recipe settings:
 
@@ -17,13 +17,11 @@ Complete this gate before calling any Strava data function. The synthetic Strava
 
    Always use this exact form. A bare `claude mcp get strava` subprocess can omit project settings and falsely report `Pending approval` even though `.claude/settings.json` already approves the server. Do not treat output from the bare form as authoritative.
 
-2. Use `ToolSearch` to search for `strava list athlete activities workouts activity details`.
-   - If Strava's real activity tools are available and the status reports `Connected`, continue to the sync workflow.
-   - If authentication is required or the real tools are unavailable, use `ToolSearch` to search for `strava authenticate MCP` and load the synthetic authentication tool exposed for the unauthenticated server. Its name normally ends in `authenticate`, such as `mcp__strava__authenticate`.
+2. If the explicit status reports `Connected`, use `ToolSearch` to search for `strava list athlete activities workouts activity details`.
+   - If Strava's activity tools are available, continue to the sync workflow.
+   - If they are unavailable, report that the connected Strava server did not expose its activity tools and stop. Do not start another login merely because a tool is unavailable.
 
-3. If the synthetic authentication tool is available, call it from the current Claude Code process and handle its result as described in step 4.
-
-   If no synthetic authentication tool is exposed, do not claim that an interactive Claude session must be started manually. Instead, run this exact project-relative command in the foreground with a 600000 ms Bash timeout:
+3. If the explicit status reports that Strava authentication is required, the server returned HTTP 401 or 403, or the server is disconnected because authorization is missing, run this exact project-relative command in the foreground with a 600000 ms Bash timeout:
 
    ```sh
    .claude/skills/run/login_strava_terminal.py
@@ -37,33 +35,23 @@ Complete this gate before calling any Strava data function. The synthetic Strava
 
    The Terminal command opens Strava's OAuth flow in the default browser. The helper keeps the original `-p` run alive and polls the explicitly configured server until the login command completes or the server reports `Connected`. Wait for the user to complete authentication; do not background the helper and do not ask the user to copy or run the command themselves.
 
-4. Handle the authentication result:
-   - If it reports that authentication completed silently, proceed to the refresh step.
-   - If it returns an `auth_url`, pass that URL as one shell-quoted argument to this exact project-relative command, run in the foreground with a 600000 ms Bash timeout:
-
-     ```sh
-     .claude/skills/run/open_strava_auth.py '{auth_url}'
-     ```
-
-     The helper accepts only an HTTPS Strava authorization URL, opens it in the user's default browser, and polls until the OAuth callback has made the server connect. Do not background it. Wait while the user authorizes Strava in the browser.
-
-5. After either helper or silent authentication succeeds, force the current `-p` session to refresh its deferred MCP tools by calling `ToolSearch` again for `strava list athlete activities workouts activity details`. If only the synthetic authentication tool is returned, call `ToolSearch` one more time for `strava activities details` before deciding that the current process did not reload the tools.
-
-6. Verify the connection again with the explicit recipe settings:
+4. When the helper succeeds, verify the server once more with the explicit recipe settings:
 
    ```sh
    claude --settings .claude/settings.json mcp get strava
    ```
 
-7. Continue only when both conditions are true:
-   - `claude --settings .claude/settings.json mcp get strava` reports `Connected`.
-   - `ToolSearch` returns Strava's real activity tools rather than only the synthetic authentication tool.
+5. If the status now reports `Connected`, do not refresh tools and do not continue to the sync workflow during this execution. Respond clearly with this exact message and stop:
 
-If the helper reaches its timeout, check the connection and run the refresh search once before stopping. Continue if the two conditions above are now true. Otherwise, explain that the authorization window expired and stop without calling Strava data functions.
+   ```text
+   Strava authentication completed. Rerun this feed in Pachinko to start the sync.
+   ```
 
-If the interactive Terminal login succeeds and the explicit status check reports `Connected`, but both refresh searches still fail to expose Strava's real tools, explain that authorization is now saved but this particular `-p` process did not reload its MCP client. Stop without calling Strava functions; the next recipe run should use the saved authorization and proceed without another login.
+An execution that launches the Terminal login is authentication-only. Never call Strava data functions or start the sync workflow in that same execution, even if the current process appears able to load the tools afterward. The next Pachinko feed run starts a fresh Claude process with the saved authorization.
 
-If the initial status is not an authentication problem—for example, the server configuration is invalid, the service is unavailable, or the network cannot reach it—report that specific problem and stop. Do not start OAuth unless authentication is needed.
+If the helper reaches its timeout, check the explicit connection status once before stopping. If it is connected, use the exact successful-authentication message above. Otherwise, explain that the authorization window expired and stop without calling Strava data functions.
+
+If the initial status is not an authentication problem—for example, the server configuration is invalid, the service is unavailable, the project server is not approved, or the network cannot reach it—report that specific problem and stop. Do not start OAuth unless authentication is needed.
 
 ## Sync workflow
 

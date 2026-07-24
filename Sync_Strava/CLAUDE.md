@@ -16,7 +16,9 @@ Say **"run"** to execute the recipe.
 
 The Strava MCP server is configured as `strava` at `https://mcp.strava.com/mcp`.
 
-When the user says `run`, follow `.claude/skills/run/SKILL.md` exactly. Its authentication gate is mandatory: do not call Strava data functions until the server has been verified as connected. If authentication is required in a `-p` session, prefer the current process's synthetic Strava authentication tool when it is exposed. If it is not exposed, use the bundled Terminal helper, which launches a real interactive macOS Terminal running `claude --settings .claude/settings.json mcp login strava` while the original process waits. After either route succeeds, refresh the real Strava tools with `ToolSearch`.
+When the user says `run`, follow `.claude/skills/run/SKILL.md` exactly. Its authentication gate is mandatory: do not call Strava data functions until the server has been verified as connected. If authentication is required in a `-p` session, use the bundled Terminal helper. It launches a real interactive macOS Terminal running `claude --settings .claude/settings.json mcp login strava` while the original process waits.
+
+An execution that launches the Terminal login is authentication-only. After authentication completes, do not refresh Strava tools or begin syncing. Tell the user exactly: `Strava authentication completed. Rerun this feed in Pachinko to start the sync.` The next Pachinko feed run starts the sync with the saved authorization.
 
 When checking MCP status from Bash, always pass `--settings .claude/settings.json` to the `claude` command. The standalone MCP subcommand does not reliably apply project approval settings unless they are passed explicitly; its bare `Pending approval` result is not authoritative for this recipe.
 

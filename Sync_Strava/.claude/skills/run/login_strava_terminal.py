@@ -92,7 +92,11 @@ def main() -> None:
         last_status = str(error)
 
     if connected:
-        print("Strava MCP is already connected.", flush=True)
+        print(
+            "Strava authentication completed. "
+            "Rerun this feed in Pachinko to start the sync.",
+            flush=True,
+        )
         return
 
     script_fd, script_name = tempfile.mkstemp(
@@ -129,11 +133,15 @@ def main() -> None:
                 last_status = str(error)
 
             if connected:
-                print("Strava MCP authentication completed.", flush=True)
+                print(
+                    "Strava authentication completed. "
+                    "Rerun this feed in Pachinko to start the sync.",
+                    flush=True,
+                )
                 return
 
             login_result = read_login_result(result_path)
-            if login_result is not None:
+            if login_result is not None and login_result != 0:
                 print(
                     f"`claude mcp login strava` exited with status {login_result}, "
                     "but Strava is not connected.",
