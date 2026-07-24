@@ -6,3 +6,5 @@ Sync_RSS_Feeds/feed_state.json
 Import_PDFs/converted_pdfs.json
 
 .DS_Store
+
+Sync_Strava/strava_sync_state.json
