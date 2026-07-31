@@ -126,6 +126,13 @@ Call `mcp__pachinko__add_note` with:
 
 If the call fails, print the full note to the terminal and report the error. **Do not update the state file** — leave `last_run` and `last_note` unchanged so the next run retries with the same since datetime.
 
+After `mcp__pachinko__add_note` succeeds, capture the returned note ID and immediately call `mcp__pachinko__set_note_source` with:
+
+- `note_id`: the note ID returned by `add_note`
+- `source_type`: `webpage`
+
+The `set_note_source` call must be the next action after `add_note`, before updating the state file. If it fails, retry it once immediately. If the retry also fails, report the Pachinko note ID, then continue to the state update so the already-created News Flash note is not duplicated on the next run.
+
 ### 7. Update state file
 
 Write `news_flash_state.json` in the project root:
@@ -156,3 +163,4 @@ Print a brief summary:
 - Coverage window (`since_datetime UTC` → `now_utc`)
 - Number of new items found and added to Pachinko
 - Confirmation that `news_flash_state.json` was updated
+- Whether the saved note's source was set to `webpage`; report its note ID if source setting failed after the retry

@@ -11,7 +11,8 @@ Sync new X/Twitter bookmarks and push each new one into the Pachinko inbox. This
 1. **Sync** — pull new bookmarks from X via fieldtheory
 2. **Diff** — identify bookmarks not yet sent to Pachinko
 3. **Push** — add each new bookmark to the Pachinko inbox as a markdown note
-4. **Track** — record sent IDs so they aren't duplicated on next run
+4. **Set source** — mark each new note's source as Twitter
+5. **Track** — record sent IDs so they aren't duplicated on next run
 
 ---
 
@@ -143,11 +144,18 @@ If `quotedTweet` is absent, omit the block entirely.
 
 Process new bookmarks **oldest first** (ascending by `postedAt`) so the inbox order is chronological.
 
+After each `mcp__pachinko__add_note` call succeeds, capture the returned note ID and immediately call `mcp__pachinko__set_note_source` with:
+
+- **`note_id`**: the note ID returned by `add_note`
+- **`source_type`**: `twitter`
+
+The `set_note_source` call must be the next action after `add_note`, before updating the tracking file or processing another bookmark. If it fails, retry it once immediately. If the retry also fails, report the bookmark ID and Pachinko note ID, then continue to the tracking step so the already-created note is not duplicated on the next run.
+
 ---
 
 ## Step 7 — Update the tracking file
 
-After successfully adding a bookmark to Pachinko, immediately append its ID to the tracking file:
+After successfully adding a bookmark to Pachinko and attempting to set its source as described above, immediately append its ID to the tracking file:
 
 ```sh
 .claude/scripts/ft-append-sent.sh {id}
@@ -165,4 +173,4 @@ When done, output a summary:
 Synced {N} new bookmark(s) to Pachinko inbox.
 ```
 
-If any individual `add_note` call fails, report the failed bookmark's ID and text, then continue with the rest.
+If any individual `add_note` call fails, report the failed bookmark's ID and text, then continue with the rest. Also report any bookmark whose note was created but whose source could not be set after the retry.
