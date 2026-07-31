@@ -134,7 +134,11 @@ Use the list output to evaluate filter decisions. Obtain title, link, published,
   **Description:** {description}
   ```
 - Write the full rendered markdown to a temporary `.md` file, then call `mcp__pachinko__add_note` with `note_body_file_path` pointing to that file. Never send the full rendered video note in the `note_body` parameter. If the call fails, log a warning and continue.
-- After `mcp__pachinko__add_note` succeeds, mark only that video as seen:
+- After `mcp__pachinko__add_note` succeeds, capture the returned note ID and immediately call `mcp__pachinko__set_note_source` with:
+  - `note_id`: the note ID returned by `add_note`
+  - `source_type`: `youtube`
+- The `set_note_source` call must be the next action after `add_note`, before marking the video as seen or processing another video. If it fails, retry it once immediately. If the retry also fails, report the video ID and Pachinko note ID, then continue to the seen-state update so the already-created note is not duplicated on the next run.
+- Immediately after source setting succeeds or its retry fails, mark only that video as seen:
 
   ```bash
   python3 <SKILL_DIR>/mark_video_seen.py <STATE_FILE_PATH> "$FEED_URL" "{video_id}"
@@ -148,3 +152,4 @@ Print a summary:
 
 - Channel URL, resolved feed URL, number of new videos found, how many passed the filter and were added to Pachinko, and the title + link of each new video (noting which were filtered out).
 - Confirm that `feed_state.json` has been updated only for videos successfully added to Pachinko.
+- Report any saved video whose source could not be set to `youtube` after the retry.

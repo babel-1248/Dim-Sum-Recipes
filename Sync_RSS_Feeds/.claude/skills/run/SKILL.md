@@ -13,12 +13,12 @@ The environment variable `FILTER_FILE` is optional. If set, it must point to a p
 Treat each article as an isolated transaction. An article is complete only after exactly one of these outcomes:
 
 1. **Filtered out:** `mark_seen.py` succeeded.
-2. **Saved:** `mcp__pachinko__add_note` succeeded, then `mark_seen.py` succeeded as the very next action.
+2. **Saved:** `mcp__pachinko__add_note` succeeded, `mcp__pachinko__set_note_source` was called next with source type `rss`, then `mark_seen.py` succeeded immediately after the source-setting attempt.
 3. **Save failed:** the article was not marked as seen and remains eligible for retry.
 
-After `mcp__pachinko__add_note` succeeds, the very next action must be the `mark_seen.py` call for that same article. Do not defer, group, batch, collect, or delegate seen-state updates. Do not inspect, filter, convert, save, or otherwise process another article between saving the note and marking its article as seen.
+After `mcp__pachinko__add_note` succeeds, the very next action must be `mcp__pachinko__set_note_source` for the returned note ID with `source_type` set to `rss`. If source setting fails, retry it once immediately. Whether source setting succeeds or its retry fails, the next action must be the `mark_seen.py` call for that same article so the already-created note is not duplicated on the next run. Do not defer, group, batch, collect, or delegate source-setting or seen-state updates. Do not inspect, filter, convert, save, or otherwise process another article between saving the note and marking its article as seen.
 
-If using subagents, assign exactly one article to each subagent task. A subagent must not return a saved or filtered result until its `mark_seen.py` call succeeds. It must return the article ID, outcome (`saved`, `filtered`, or `save_failed`), saved note ID when applicable, and whether marking succeeded. Never assign a batch of articles to one subagent task.
+If using subagents, assign exactly one article to each subagent task. A subagent must not return a saved or filtered result until its `mark_seen.py` call succeeds. It must return the article ID, outcome (`saved`, `filtered`, or `save_failed`), saved note ID when applicable, whether its source was set successfully, and whether marking succeeded. Never assign a batch of articles to one subagent task.
 
 The parent must treat a `saved` or `filtered` result without successful marking as incomplete. It must immediately run `mark_seen.py` for that article before accepting another result or assigning more work. The parent must never collect seen-state updates for a later batch.
 
@@ -118,7 +118,11 @@ Process each article as the isolated transaction defined above. Finish its save/
 
 - Call `mcp__pachinko__add_note` with the rendered markdown.
   - If the call fails, log a warning and continue **without marking the article as seen**, so it can be retried on a later run.
-  - If the call succeeds and returns the saved note, mark the article as seen:
+  - If the call succeeds and returns the saved note, immediately call `mcp__pachinko__set_note_source` with:
+    - `note_id`: the note ID returned by `add_note`
+    - `source_type`: `rss`
+  - If `set_note_source` fails, retry it once immediately. If the retry also fails, report the article ID and Pachinko note ID, then continue to `mark_seen.py` so the already-created note is not duplicated on the next run.
+  - Immediately after source setting succeeds or its retry fails, mark the article as seen:
 
     ```bash
     python3 <SKILL_DIR>/mark_seen.py <STATE_FILE_PATH> "$FEED_URL" "{article_id}"
@@ -132,4 +136,5 @@ Print a summary:
 
 - Feed URL, number of new articles found, how many passed the filter and were added to Pachinko, and the title + link of each new article (noting which were filtered out).
 - Confirm how many articles were marked as seen. Do not claim `feed_state.json` was updated for any article whose `mark_seen.py` call failed.
+- Report any saved article whose source could not be set to `rss` after the retry.
 - For subagent work, verify that every `saved` or `filtered` result reports successful marking. Immediately repair any incomplete result before finalizing the summary; never repair them as a batch.
