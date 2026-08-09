@@ -1,0 +1,15 @@
+{
+  "disableWorkflows": true,
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": ["pachinko"],
+  "permissions": {
+    "allow": [
+      "mcp__pachinko__*",
+      "WebSearch",
+      "WebFetch",
+      "Bash(python3 *)",
+      "Bash(curl *)",
+      "Bash(.claude/scripts/read_environment.py)"
+    ]
+  }
+}
