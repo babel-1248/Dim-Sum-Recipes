@@ -25,7 +25,7 @@ Say **"run"** to execute the full pipeline:
 
 ## State
 
-Feed watermarks and saved item IDs are tracked under `.feed-state/` in the project root. Each feed resumes from its own stored watermark when no date is provided.
+Feed watermarks and saved item IDs are tracked under `.feed-state/` in the project root. When the filter supplies no time range, each feed resumes from its own stored watermark; a feed with no prior state starts one calendar month before the run date.
 
 ## Environment Configuration
 

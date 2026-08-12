@@ -10,6 +10,9 @@ then house, then senate** — each completing fully (fetch → filter → conver
 notes → state) before the next begins, so a failure part way through still leaves
 earlier feeds correctly recorded.
 
+Run the entire workflow non-interactively. Never pause for confirmation or ask the
+user to choose a fallback; apply the defaults and precedence rules in this skill.
+
 Scripts live under `./.claude/skills/run/scripts/`. Invoke them with their project-relative paths so the project-local rules apply. Work in the session scratchpad (`$SCRATCH`).
 
 | Feed | Branch | Fetch | Convert | Markdown |
@@ -29,8 +32,10 @@ to be shared.
 - **Filter** (optional) — loaded from `FILTER_FILE` and applied to **all three feeds**,
   e.g. *"anything on healthcare"*, *"skip the senate"*, *"only executive orders and
   Senate confirmations"*, *"nothing procedural"*.
-- **Since date** (optional) — inclusive `YYYY-MM-DD`. **Omit it to resume**: each
-  feed picks up from its own stored watermark.
+- **Time range** (optional) — read from the filter instructions. A lower bound is
+  inclusive. Without an explicit time range, each feed resumes from its own stored
+  watermark; a feed with no prior state starts one calendar month before the run
+  date.
 
 ## Step 0 — Resolve the filter into per-feed instructions
 
@@ -65,11 +70,25 @@ Run this whole block for one feed before starting the next.
 
 ### 1a. Determine the window
 
+Resolve the window separately for each feed, using this precedence:
+
+1. If the filter instructions specify a time range, use that range. An explicit
+   lower bound overrides stored `next_since`; `seen_ids` still prevents duplicates.
+2. Otherwise, use the feed's stored `next_since` when present.
+3. Otherwise, on the feed's first run, start one calendar month before the current
+   local date. Do not fetch an unbounded history.
+
+When there is no explicit time range, run:
+
 ```
-SINCE=$(python3 ./.claude/skills/run/scripts/feedstate.py since <feed> [--default YYYY-MM-DD])
+SINCE=$(python3 ./.claude/skills/run/scripts/feedstate.py since <feed> --default-one-month)
 ```
-`since` prints the feed's stored `next_since`, falling back to `--default`. If
-there is no stored state and the user gave no date, ask rather than guessing.
+
+`since` prints the feed's stored `next_since`, falling back to one calendar month
+before today only when no state exists. For an explicit lower bound from the
+filter, pass that date directly to the fetch command instead of calling `since`.
+Apply an explicit upper bound to the fetch command as `--until`; otherwise use the
+current local date as the window end.
 
 `next_since` deliberately equals the previous run's `until`, so the boundary day is
 re-scanned — items are published throughout a day and starting the day after would
@@ -122,11 +141,7 @@ filtered-out item costs zero requests. Never move any of it into a fetch script;
 the one thing a fetch must download in bulk is BILLSTATUS, and only because
 in-window action dates are the filter itself.
 
-### 1f. Volume check
-
-More than ~40 notes for a feed: report the count and confirm before writing.
-
-### 1g. Write the notes
+### 1f. Write the notes
 
 Before listing or creating notes, follow the global **Creating Notes** instructions in `./CLAUDE.md` to resolve the destination from the `SAVE_TO_PROJECT_ID` value captured at startup. Use that resolved destination consistently for `list_notes` and every `add_note` call in this run. Do not choose or hardcode a destination inside this skill.
 
@@ -140,7 +155,7 @@ future `effective_on`. Congress items carry no actionable deadline.
 1c) for dedupe, not on titles. There is no delete-note tool, so duplicates cannot
 be undone.
 
-### 1h. Record state — always, even on an empty window
+### 1g. Record state — always, even on an empty window
 
 ```
 python3 ./.claude/skills/run/scripts/feedstate.py record <feed> --watermark <max item date> \
@@ -187,8 +202,8 @@ Override the location with `US_GOV_FEED_STATE`, or the project root with
 ## A watermark is only meaningful for the filter that produced it
 
 `watermark`/`next_since` record how far a feed was synced **under the filter used at
-the time**. If the user later widens the filter, the skipped categories were never
-synced and resuming from the watermark would silently miss them. When the filter
-differs materially from `last_run`, say so and confirm the date rather than
-resuming blindly. `seen_ids` is always safe to trust — it lists what was actually
-written.
+the time**. If the filter later widens, previously skipped categories might not
+have been synced. Continue without prompting and resolve the window using Step 1a:
+an explicit time range in the current filter overrides the watermark; otherwise
+resume from `next_since`. `seen_ids` is always safe to trust — it lists what was
+actually written.

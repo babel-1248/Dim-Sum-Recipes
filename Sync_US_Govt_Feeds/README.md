@@ -2,7 +2,9 @@
 
 A Claude Code and Codex recipe that syncs Federal Register, House, and Senate activity into Pachinko notes.
 
-Say **"run"** to execute the bundled workflow. The feeds run in order: executive, House, then Senate.
+On the first run, the recipe limits the initial lookback to one calendar month unless the filter gives other instructions.
+
+A filter file is highly recommended as this recipe can generate large numbers of notes.
 
 ## Customization
 
