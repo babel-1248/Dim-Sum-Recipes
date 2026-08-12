@@ -1,6 +1,6 @@
 {
-  "name": "Sync US Govt Feeds",
-  "version": "1.0.0",
+  "name": "Sync US Government Feeds",
+  "version": "1.0.2",
   "supportedAgents": [
     "Claude Code",
     "Codex"

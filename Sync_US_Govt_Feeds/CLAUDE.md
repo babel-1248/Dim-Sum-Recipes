@@ -8,7 +8,7 @@ Say **"run"** to execute the full pipeline:
 
 1. Load the optional filter instructions from `FILTER_FILE`
 2. Sync the executive, House, and Senate feeds in order
-3. Filter, convert, and add matching government activity to Pachinko
+3. Filter, convert, and add up to 50 matching notes per feed to Pachinko
 4. Update per-feed state so previously saved items are not duplicated
 
 ## Setup
@@ -25,7 +25,9 @@ Say **"run"** to execute the full pipeline:
 
 ## State
 
-Feed watermarks and saved item IDs are tracked under `.feed-state/` in the project root. When the filter supplies no time range, each feed resumes from its own stored watermark; a feed with no prior state starts one calendar month before the run date.
+Feed watermarks and saved item IDs are tracked under `.feed-state/` in the project root. When the filter supplies no time range, each feed resumes from its own stored watermark; a feed with no prior state starts seven days before the run date.
+
+Each feed creates at most 50 notes per run after time-range and relevance filtering. If more items match, the remainder stay eligible for the next run.
 
 ## Environment Configuration
 

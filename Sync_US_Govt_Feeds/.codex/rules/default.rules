@@ -11,6 +11,12 @@ prefix_rule(
 )
 
 prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/cap_keep.py"],
+    decision = "allow",
+    justification = "Allow capping each government feed at 50 selected notes per run.",
+)
+
+prefix_rule(
     pattern = ["python3", "./.claude/skills/run/scripts/fr_fetch.py"],
     decision = "allow",
     justification = "Allow the bundled Federal Register fetcher.",

@@ -3,6 +3,8 @@ name: run
 description: Run the Sync US Govt Feeds recipe. Load optional plain-text instructions from FILTER_FILE, then sync US government activity into Pachinko notes one feed at a time in order — executive (Federal Register documents), House, and Senate (bills that moved plus roll call votes, with full text converted to Markdown). Use when the user says "run" in this recipe.
 ---
 
+**Never use the Agent tool. Do not spawn sub-agents or background workers at any point during this skill.**
+
 # Sync US Government Feeds
 
 One skill covering all three branches. Feeds run **strictly in order — executive,
@@ -34,8 +36,9 @@ to be shared.
   Senate confirmations"*, *"nothing procedural"*.
 - **Time range** (optional) — read from the filter instructions. A lower bound is
   inclusive. Without an explicit time range, each feed resumes from its own stored
-  watermark; a feed with no prior state starts one calendar month before the run
-  date.
+  watermark; a feed with no prior state starts seven days before the run date.
+- **Per-feed note cap** — create at most 50 notes for each feed in one run, after
+  applying the time window, seen-state dedupe, and relevance filter.
 
 ## Step 0 — Resolve the filter into per-feed instructions
 
@@ -75,20 +78,20 @@ Resolve the window separately for each feed, using this precedence:
 1. If the filter instructions specify a time range, use that range. An explicit
    lower bound overrides stored `next_since`; `seen_ids` still prevents duplicates.
 2. Otherwise, use the feed's stored `next_since` when present.
-3. Otherwise, on the feed's first run, start one calendar month before the current
-   local date. Do not fetch an unbounded history.
+3. Otherwise, on the feed's first run, start seven days before the current local
+   date. Do not fetch an unbounded history.
 
 When there is no explicit time range, run:
 
 ```
-SINCE=$(python3 ./.claude/skills/run/scripts/feedstate.py since <feed> --default-one-month)
+SINCE=$(python3 ./.claude/skills/run/scripts/feedstate.py since <feed> --default-seven-days)
 ```
 
-`since` prints the feed's stored `next_since`, falling back to one calendar month
-before today only when no state exists. For an explicit lower bound from the
-filter, pass that date directly to the fetch command instead of calling `since`.
-Apply an explicit upper bound to the fetch command as `--until`; otherwise use the
-current local date as the window end.
+`since` prints the feed's stored `next_since`, falling back to seven days before
+today only when no state exists. For an explicit lower bound from the filter, pass
+that date directly to the fetch command instead of calling `since`. Apply an
+explicit upper bound to the fetch command as `--until`; otherwise use the current
+local date as the window end.
 
 `next_since` deliberately equals the previous run's `until`, so the boundary day is
 re-scanned — items are published throughout a day and starting the day after would
@@ -129,11 +132,29 @@ Judge in batches for a large manifest. **Do not sample** — every item is judge
 the feed silently lies about coverage. Report fetched → fresh → kept per feed, and
 name a few dropped items with reasons.
 
-### 1e. Convert
+### 1e. Cap the feed at 50 notes
+
+After relevance filtering, cap the keep list before conversion:
 
 ```
-python3 ./.claude/skills/run/scripts/fr_convert.py       --manifest … --out "$SCRATCH/<feed>/notes" --keep …
-python3 ./.claude/skills/run/scripts/congress_convert.py --manifest … --out "$SCRATCH/<feed>/notes" --keep …
+python3 ./.claude/skills/run/scripts/cap_keep.py \
+    --manifest "$SCRATCH/<feed>/manifest.json" \
+    --keep "$SCRATCH/<feed>/keep.txt" \
+    --selected "$SCRATCH/<feed>/selected.txt" \
+    --deferred "$SCRATCH/<feed>/deferred.txt" \
+    --limit 50
+```
+
+Use `selected.txt`, never the uncapped `keep.txt`, for conversion. The helper
+selects the oldest matching items first and prints JSON counts plus
+`earliest_deferred_date`. Do not create more than 50 notes for this feed during
+the run. Leave deferred IDs unrecorded so they remain eligible next time.
+
+### 1f. Convert
+
+```
+python3 ./.claude/skills/run/scripts/fr_convert.py       --manifest … --out "$SCRATCH/<feed>/notes" --keep "$SCRATCH/<feed>/selected.txt"
+python3 ./.claude/skills/run/scripts/congress_convert.py --manifest … --out "$SCRATCH/<feed>/notes" --keep "$SCRATCH/<feed>/selected.txt"
 ```
 **Everything expensive lives in this step, on purpose.** Full text download,
 XML→markdown conversion and vote→bill resolution all happen after `--keep`, so a
@@ -141,7 +162,7 @@ filtered-out item costs zero requests. Never move any of it into a fetch script;
 the one thing a fetch must download in bulk is BILLSTATUS, and only because
 in-window action dates are the filter itself.
 
-### 1f. Write the notes
+### 1g. Write the notes
 
 Before listing or creating notes, follow the global **Creating Notes** instructions in `./CLAUDE.md` to resolve the destination from the `SAVE_TO_PROJECT_ID` value captured at startup. Use that resolved destination consistently for `list_notes` and every `add_note` call in this run. Do not choose or hardcode a destination inside this skill.
 
@@ -155,20 +176,27 @@ future `effective_on`. Congress items carry no actionable deadline.
 1c) for dedupe, not on titles. There is no delete-note tool, so duplicates cannot
 be undone.
 
-### 1g. Record state — always, even on an empty window
+### 1h. Record state — always, even on an empty window
 
 ```
-python3 ./.claude/skills/run/scripts/feedstate.py record <feed> --watermark <max item date> \
-    --until <window end> --ids-file <ids actually written> \
+python3 ./.claude/skills/run/scripts/feedstate.py record <feed> --watermark <max written item date> \
+    --until <continuation date> --ids-file <ids actually written> \
     [--fetched N --kept N --written N]
 ```
 Do this immediately after the notes are written, before moving to the next feed.
-On an empty window still record `--until` so the watermark advances.
+
+Set `<continuation date>` to the earliest date among all deferred items and any
+selected item whose `add_note` call failed. If an outstanding item has no date,
+use the window start. This deliberately re-scans from the oldest outstanding date
+on the next run; `seen_ids` removes items already written. If there are no deferred
+or failed items, use the window end. On an empty window, also use the window end so
+state advances. Never record a deferred or failed ID as written.
 
 ## Step 2 — Report
 
-One table: per feed, window covered, fetched → fresh → kept → written, warnings,
-and the next since-date. Name any feed skipped and why.
+One table: per feed, window covered, fetched → fresh → kept → selected (maximum
+50) → written → deferred, warnings, and the next since-date. Name any feed skipped
+and why.
 
 ## State files
 

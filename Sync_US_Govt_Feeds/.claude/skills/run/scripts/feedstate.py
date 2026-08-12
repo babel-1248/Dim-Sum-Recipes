@@ -25,14 +25,13 @@ because seen_ids removes what was already written.
 
 CLI:
   python3 feedstate.py show [FEED]
-  python3 feedstate.py since FEED [--default YYYY-MM-DD | --default-one-month]
+  python3 feedstate.py since FEED [--default YYYY-MM-DD | --default-seven-days]
   python3 feedstate.py filter-seen FEED --ids-file IDS      # drop already-written
   python3 feedstate.py record FEED --watermark D --until D --ids-file IDS \
                                    [--fetched N] [--kept N]
   python3 feedstate.py reset FEED
 """
 import argparse
-import calendar
 import contextlib
 import datetime
 import errno
@@ -46,16 +45,10 @@ MAX_SEEN = 2000          # bounded so the file cannot grow without limit
 LOCK_TIMEOUT = 30.0      # seconds to wait for another agent to finish
 
 
-def one_calendar_month_ago(today=None):
-    """Return the same day last month, clamped to that month's final day."""
+def seven_days_ago(today=None):
+    """Return the date seven days before today."""
     today = today or datetime.date.today()
-    year = today.year
-    month = today.month - 1
-    if month == 0:
-        year -= 1
-        month = 12
-    day = min(today.day, calendar.monthrange(year, month)[1])
-    return datetime.date(year, month, day).isoformat()
+    return (today - datetime.timedelta(days=7)).isoformat()
 
 
 def state_dir():
@@ -186,7 +179,7 @@ def main():
     p = sub.add_parser("since"); p.add_argument("feed")
     defaults = p.add_mutually_exclusive_group()
     defaults.add_argument("--default")
-    defaults.add_argument("--default-one-month", action="store_true")
+    defaults.add_argument("--default-seven-days", action="store_true")
     p = sub.add_parser("filter-seen")
     p.add_argument("feed"); p.add_argument("--ids-file", required=True)
     p = sub.add_parser("record")
@@ -209,7 +202,7 @@ def main():
 
     if args.cmd == "since":
         d = read(args.feed)
-        fallback = one_calendar_month_ago() if args.default_one_month else args.default
+        fallback = seven_days_ago() if args.default_seven_days else args.default
         value = d.get("next_since") or fallback
         if not value:
             raise SystemExit(f"no stored state for {args.feed} and no --default given")
