@@ -1,4 +1,4 @@
-# Sync US Governmentt Feeds
+# Sync US Government Feeds
 
 A Claude Code and Codex recipe that syncs Federal Register, House, and Senate activity into Pachinko notes.
 
