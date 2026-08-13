@@ -37,8 +37,10 @@ to be shared.
 - **Time range** (optional) — read from the filter instructions. A lower bound is
   inclusive. Without an explicit time range, each feed resumes from its own stored
   watermark; a feed with no prior state starts seven days before the run date.
-- **Per-feed note cap** — create at most 50 notes for each feed in one run, after
-  applying the time window, seen-state dedupe, and relevance filter.
+- **Per-feed note cap** — default to at most 50 notes for each feed in one run,
+  after applying the time window, seen-state dedupe, and relevance filter. The
+  filter instructions may explicitly set another positive integer or request no
+  limit.
 
 ## Step 0 — Resolve the filter into per-feed instructions
 
@@ -64,6 +66,12 @@ Resolve the loaded filter instructions into:
    window, `--source bills,votes` and `--bill-type`.
 3. **Layer 2 relevance criterion.** Everything left over. The *same* criterion is
    applied to all three feeds, but judged against each feed's own fields.
+4. **Per-feed note limit.** Default each feed to 50. Recognize explicit filter
+   instructions such as *"limit each feed to 100 notes"*, *"limit the Senate to
+   20"*, or *"no note limit"*. A feed-specific override wins over a global
+   override. A positive integer sets the cap; an explicit *"no limit"* or
+   *"unlimited"* removes it for the named feeds. If attempted limit wording is
+   ambiguous or not a positive integer, retain 50 without asking the user.
 
 If a feed ends up with an empty layer-1 and an empty layer-2, it keeps everything.
 
@@ -132,9 +140,10 @@ Judge in batches for a large manifest. **Do not sample** — every item is judge
 the feed silently lies about coverage. Report fetched → fresh → kept per feed, and
 name a few dropped items with reasons.
 
-### 1e. Cap the feed at 50 notes
+### 1e. Apply the resolved note limit
 
-After relevance filtering, cap the keep list before conversion:
+After relevance filtering, apply the limit resolved for this feed before
+conversion. For the default or a numeric override, run:
 
 ```
 python3 ./.claude/skills/run/scripts/cap_keep.py \
@@ -142,13 +151,16 @@ python3 ./.claude/skills/run/scripts/cap_keep.py \
     --keep "$SCRATCH/<feed>/keep.txt" \
     --selected "$SCRATCH/<feed>/selected.txt" \
     --deferred "$SCRATCH/<feed>/deferred.txt" \
-    --limit 50
+    --limit <resolved positive integer>
 ```
+
+For an explicit unlimited override, replace `--limit ...` with `--no-limit`.
 
 Use `selected.txt`, never the uncapped `keep.txt`, for conversion. The helper
 selects the oldest matching items first and prints JSON counts plus
-`earliest_deferred_date`. Do not create more than 50 notes for this feed during
-the run. Leave deferred IDs unrecorded so they remain eligible next time.
+`earliest_deferred_date`. Do not create more notes for this feed than its resolved
+limit. Leave deferred IDs unrecorded so they remain eligible next time. With an
+unlimited override, the helper selects every matching item and defers none.
 
 ### 1f. Convert
 
@@ -194,9 +206,9 @@ state advances. Never record a deferred or failed ID as written.
 
 ## Step 2 — Report
 
-One table: per feed, window covered, fetched → fresh → kept → selected (maximum
-50) → written → deferred, warnings, and the next since-date. Name any feed skipped
-and why.
+One table: per feed, window covered, resolved note limit, fetched → fresh → kept →
+selected → written → deferred, warnings, and the next since-date. Name any feed
+skipped and why.
 
 ## State files
 

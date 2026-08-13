@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Cap a government-feed keep list without losing deferred items.
 
-Select the oldest matching manifest items up to --limit and write selected and
-deferred ID files. Print a JSON summary containing the earliest deferred date so
-the caller can keep the next sync boundary behind any unprocessed items.
+Select the oldest matching manifest items up to --limit, or all matching items
+with --no-limit, and write selected and deferred ID files. Print a JSON summary
+containing the earliest deferred date so the caller can keep the next sync
+boundary behind any unprocessed items. The default limit is 50.
 """
 
 import argparse
@@ -30,6 +31,8 @@ def manifest_entries(manifest):
 def cap_entries(entries, keep_ids, limit):
     matching = [(item_id, date) for item_id, date in entries if item_id in keep_ids]
     matching.sort(key=lambda entry: (entry[1] or "", entry[0]))
+    if limit is None:
+        return matching, []
     return matching[:limit], matching[limit:]
 
 
@@ -45,11 +48,14 @@ def main():
     parser.add_argument("--keep", required=True)
     parser.add_argument("--selected", required=True)
     parser.add_argument("--deferred", required=True)
-    parser.add_argument("--limit", type=int, default=50)
+    cap = parser.add_mutually_exclusive_group()
+    cap.add_argument("--limit", type=int)
+    cap.add_argument("--no-limit", action="store_true")
     args = parser.parse_args()
 
-    if args.limit < 1:
+    if args.limit is not None and args.limit < 1:
         parser.error("--limit must be at least 1")
+    limit = None if args.no_limit else (args.limit if args.limit is not None else 50)
 
     with open(args.manifest, encoding="utf-8") as fh:
         manifest = json.load(fh)
@@ -65,13 +71,14 @@ def main():
             file=sys.stderr,
         )
 
-    selected, deferred = cap_entries(entries, keep_ids, args.limit)
+    selected, deferred = cap_entries(entries, keep_ids, limit)
     write_ids(args.selected, selected)
     write_ids(args.deferred, deferred)
 
     dated_deferred = [date for _, date in deferred if date]
     print(json.dumps({
         "eligible": len(selected) + len(deferred),
+        "limit": limit,
         "selected": len(selected),
         "deferred": len(deferred),
         "earliest_deferred_date": min(dated_deferred) if dated_deferred else None,

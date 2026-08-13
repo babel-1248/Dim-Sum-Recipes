@@ -1,13 +1,13 @@
 {
   "name": "Sync US Government Feeds",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "supportedAgents": [
     "Claude Code",
     "Codex"
   ],
   "variables": {
     "FILTER_FILE": {
-      "description": "An optional text file containing filter instructions applied to the executive, House, and Senate feeds. The instructions may also select feeds to skip or run. If not set or empty, all three feeds are synced without relevance filtering.",
+      "description": "An optional text file containing filter instructions applied to the executive, House, and Senate feeds. The instructions may select feeds, specify time ranges, and override the default 50-note per-feed limit with another positive integer or no limit. If not set or empty, all three feeds are synced without relevance filtering.",
       "type": "file",
       "required": false
     }
