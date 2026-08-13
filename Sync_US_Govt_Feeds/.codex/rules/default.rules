@@ -1,0 +1,59 @@
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/load_filter.py"],
+    decision = "allow",
+    justification = "Allow the bundled Sync US Govt Feeds filter loader.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/feedstate.py"],
+    decision = "allow",
+    justification = "Allow the bundled government feed state manager.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/cap_keep.py"],
+    decision = "allow",
+    justification = "Allow applying the configured per-feed note limit.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/fr_fetch.py"],
+    decision = "allow",
+    justification = "Allow the bundled Federal Register fetcher.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/fr_convert.py"],
+    decision = "allow",
+    justification = "Allow the bundled Federal Register converter.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/frxml2md.py"],
+    decision = "allow",
+    justification = "Allow the bundled Federal Register XML-to-Markdown converter.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/congress_fetch.py"],
+    decision = "allow",
+    justification = "Allow the bundled congressional feed fetcher.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/congress_convert.py"],
+    decision = "allow",
+    justification = "Allow the bundled congressional document converter.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/billxml2md.py"],
+    decision = "allow",
+    justification = "Allow the bundled bill XML-to-Markdown converter.",
+)
+
+prefix_rule(
+    pattern = [".claude/scripts/read_environment.py"],
+    decision = "allow",
+    justification = "Allow reading the Sync US Govt Feeds environment configuration as JSON.",
+)
