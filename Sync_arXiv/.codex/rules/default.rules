@@ -1,0 +1,41 @@
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/load_filter.py"],
+    decision = "allow",
+    justification = "Allow the bundled Sync arXiv filter loader.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/feedstate.py"],
+    decision = "allow",
+    justification = "Allow the bundled arXiv feed state manager.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/cap_keep.py"],
+    decision = "allow",
+    justification = "Allow applying the configured arXiv note limit.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/fetch.py"],
+    decision = "allow",
+    justification = "Allow the bundled arXiv metadata fetcher.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/convert.py"],
+    decision = "allow",
+    justification = "Allow the bundled arXiv paper converter.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/latexml2md.py"],
+    decision = "allow",
+    justification = "Allow the bundled LaTeXML-to-Markdown converter.",
+)
+
+prefix_rule(
+    pattern = [".claude/scripts/read_environment.py"],
+    decision = "allow",
+    justification = "Allow reading the Sync arXiv environment configuration as JSON.",
+)
