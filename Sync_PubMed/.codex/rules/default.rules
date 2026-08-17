@@ -1,0 +1,41 @@
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/load_filter.py"],
+    decision = "allow",
+    justification = "Allow the bundled Sync PubMed filter loader.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/feedstate.py"],
+    decision = "allow",
+    justification = "Allow the bundled PubMed feed state manager.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/cap_keep.py"],
+    decision = "allow",
+    justification = "Allow applying the configured PubMed note limit.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/fetch.py"],
+    decision = "allow",
+    justification = "Allow the bundled PubMed metadata fetcher.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/convert.py"],
+    decision = "allow",
+    justification = "Allow the bundled PubMed paper converter.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/jats2md.py"],
+    decision = "allow",
+    justification = "Allow the bundled JATS-to-Markdown converter.",
+)
+
+prefix_rule(
+    pattern = [".claude/scripts/read_environment.py"],
+    decision = "allow",
+    justification = "Allow reading the Sync PubMed environment configuration as JSON.",
+)

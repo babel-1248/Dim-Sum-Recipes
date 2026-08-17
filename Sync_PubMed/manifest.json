@@ -1,0 +1,25 @@
+{
+  "name": "Sync PubMed",
+  "version": "1.0.0",
+  "supportedAgents": [
+    "Claude Code",
+    "Codex"
+  ],
+  "variables": {
+    "FILTER_FILE": {
+      "description": "An optional text file containing PubMed feed instructions. It may specify search terms, MeSH headings, publication types, journals, raw Entrez query fragments, a date range, relevance criteria, abstract-only or full-text notes, and a positive note limit or no limit. If not set or empty, all PubMed records in the resolved window are eligible and the default 20-note limit applies.",
+      "type": "file",
+      "required": false
+    },
+    "NCBI_API_KEY": {
+      "description": "An optional NCBI API key. When set, the bundled E-utilities client may make up to 10 requests per second instead of the unauthenticated 3 requests per second.",
+      "type": "string",
+      "required": false
+    },
+    "NCBI_EMAIL": {
+      "description": "An optional contact email sent with NCBI E-utilities requests.",
+      "type": "string",
+      "required": false
+    }
+  }
+}
