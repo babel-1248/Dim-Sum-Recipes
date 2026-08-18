@@ -1,0 +1,4 @@
+interface:
+  display_name: "Run Sync GitHub Trending"
+  short_description: "Sync GitHub Trending repositories into Pachinko"
+  default_prompt: "Use $run to sync the configured GitHub Trending repositories into Pachinko."

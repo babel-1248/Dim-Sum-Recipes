@@ -1,0 +1,29 @@
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/config.py"],
+    decision = "allow",
+    justification = "Allow validating the configured GitHub Trending filters.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/fetch.py"],
+    decision = "allow",
+    justification = "Allow fetching and parsing GitHub Trending repositories.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/convert.py"],
+    decision = "allow",
+    justification = "Allow converting GitHub Trending repository cards to Markdown notes.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/feedstate.py"],
+    decision = "allow",
+    justification = "Allow managing resumable GitHub Trending repository state.",
+)
+
+prefix_rule(
+    pattern = [".claude/scripts/read_environment.py"],
+    decision = "allow",
+    justification = "Allow reading the Pachinko routing environment configuration as JSON.",
+)

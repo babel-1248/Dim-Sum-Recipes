@@ -1,0 +1,25 @@
+{
+  "name": "Sync GitHub Trending",
+  "version": "1.0.0",
+  "supportedAgents": [
+    "Claude Code",
+    "Codex"
+  ],
+  "variables": {
+    "DATE_RANGE": {
+      "description": "The GitHub Trending window: daily, weekly, or monthly. If unset or empty, daily is used.",
+      "type": "string",
+      "required": false
+    },
+    "LANGUAGE": {
+      "description": "An optional GitHub programming-language name or Trending URL slug, such as Python, C++, python, or c%2B%2B. If unset or empty, repositories in any programming language are included.",
+      "type": "string",
+      "required": false
+    },
+    "SPOKEN_LANGUAGE": {
+      "description": "An optional spoken-language name or GitHub language code, such as English or en. If unset or empty, repositories in any spoken language are included.",
+      "type": "string",
+      "required": false
+    }
+  }
+}

@@ -8,3 +8,6 @@ Import_PDFs/converted_pdfs.json
 .DS_Store
 
 Sync_Strava/strava_sync_state.json
+
+Sync_GitHub_Trending/.feed-state/
+Sync_GitHub_Trending/**/__pycache__/
