@@ -7,17 +7,17 @@
   ],
   "variables": {
     "DATE_RANGE": {
-      "description": "The GitHub Trending window: daily, weekly, or monthly. If unset or empty, daily is used.",
+      "description": "Choose daily, weekly, or monthly. Defaults to daily.",
       "type": "string",
       "required": false
     },
     "LANGUAGE": {
-      "description": "An optional GitHub programming-language name or Trending URL slug, such as Python, C++, python, or c%2B%2B. If unset or empty, repositories in any programming language are included.",
+      "description": "Filter by programming language, such as Python or C++. Leave blank for all languages.",
       "type": "string",
       "required": false
     },
     "SPOKEN_LANGUAGE": {
-      "description": "An optional spoken-language name or GitHub language code, such as English or en. If unset or empty, repositories in any spoken language are included.",
+      "description": "Filter by spoken language, such as English. Leave blank for all spoken languages.",
       "type": "string",
       "required": false
     }

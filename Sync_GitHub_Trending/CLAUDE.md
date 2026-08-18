@@ -17,8 +17,8 @@ The recipe never processes GitHub Trending developers.
 ## Setup
 
 1. Optionally set `DATE_RANGE` to `daily`, `weekly`, or `monthly`; it defaults to `daily`
-2. Optionally set `LANGUAGE` to a GitHub programming-language name or Trending slug
-3. Optionally set `SPOKEN_LANGUAGE` to a spoken-language name or GitHub language code
+2. Optionally set `LANGUAGE` to a programming-language name such as `Python` or `C++`
+3. Optionally set `SPOKEN_LANGUAGE` to a spoken-language name such as `English`
 4. Open this project in Claude Code or Codex
 5. Say "run"
 
