@@ -1,0 +1,47 @@
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/load_filter.py"],
+    decision = "allow",
+    justification = "Allow the bundled Sync EDGAR filter loader.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/feedstate.py"],
+    decision = "allow",
+    justification = "Allow the bundled EDGAR feed state manager.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/cap_keep.py"],
+    decision = "allow",
+    justification = "Allow applying the configured EDGAR note limit.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/fetch.py"],
+    decision = "allow",
+    justification = "Allow the bundled EDGAR metadata fetcher.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/convert.py"],
+    decision = "allow",
+    justification = "Allow the bundled EDGAR filing converter.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/edgarhtml2md.py"],
+    decision = "allow",
+    justification = "Allow the bundled EDGAR HTML-to-Markdown converter.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/form4.py"],
+    decision = "allow",
+    justification = "Allow the bundled SEC ownership-form converter.",
+)
+
+prefix_rule(
+    pattern = [".claude/scripts/read_environment.py"],
+    decision = "allow",
+    justification = "Allow reading the Sync EDGAR environment configuration as JSON.",
+)
