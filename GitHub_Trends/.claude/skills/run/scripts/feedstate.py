@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
-"""Locked, atomic, per-filter state for the GitHub Trending recipe."""
+"""Locked, atomic, configuration-independent state for GitHub Trending."""
 
 import argparse
 import contextlib
 import datetime as dt
 import errno
 import fcntl
-import hashlib
+import glob
 import json
 import os
 import sys
 import time
 
 
-MAX_SEEN = 50_000
 LOCK_TIMEOUT = 30.0
+STATE_SCOPE = "all-configurations"
+STATE_FILENAME = "github-trending.json"
 
 
 def state_directory():
@@ -26,35 +27,62 @@ def state_directory():
     return root
 
 
-def state_paths(scope):
-    digest = hashlib.sha256(scope.encode("utf-8")).hexdigest()[:20]
-    stem = os.path.join(state_directory(), f"github-trending-{digest}")
-    return f"{stem}.json", f"{stem}.lock"
+def state_paths(_scope=None):
+    directory = state_directory()
+    return os.path.join(directory, STATE_FILENAME), os.path.join(directory, "github-trending.lock")
 
 
-def blank(scope):
-    return {"version": 1, "scope": scope, "seen_ids": [], "last_run": None}
+def blank():
+    return {"version": 2, "scope": STATE_SCOPE, "seen_ids": [], "last_run": None}
 
 
-def read_state(scope):
-    path, _ = state_paths(scope)
+def load_state_file(path):
     try:
         with open(path, encoding="utf-8") as source:
             data = json.load(source)
-    except FileNotFoundError:
-        return blank(scope)
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"state file is not valid JSON: {path}") from exc
-    if data.get("scope") != scope:
+    if not isinstance(data, dict):
+        raise RuntimeError(f"state file must contain a JSON object: {path}")
+    seen_ids = data.get("seen_ids") or []
+    if not isinstance(seen_ids, list) or any(not isinstance(item_id, str) for item_id in seen_ids):
+        raise RuntimeError(f"state file has invalid seen_ids: {path}")
+    return data
+
+
+def legacy_state_paths():
+    pattern = os.path.join(state_directory(), "github-trending-*.json")
+    return sorted(glob.glob(pattern))
+
+
+def read_state(_scope=None):
+    path, _ = state_paths()
+    merged = blank()
+    try:
+        data = load_state_file(path)
+    except FileNotFoundError:
+        data = None
+    if data is not None:
+        if data.get("version") != 2 or data.get("scope") != STATE_SCOPE:
+            raise RuntimeError(f"state schema mismatch in {path}")
+        merged.update(data)
+
+    # Version 1 used one hashed file per canonical Trending URL. Read every
+    # legacy scope so changing any filter cannot recreate an existing note.
+    for legacy_path in legacy_state_paths():
+        legacy = load_state_file(legacy_path)
+        if legacy.get("version") != 1 or not legacy.get("scope"):
+            raise RuntimeError(f"legacy state schema mismatch in {legacy_path}")
+        merge_seen(merged, legacy.get("seen_ids") or [])
+
+    if merged.get("scope") != STATE_SCOPE:
         raise RuntimeError(f"state scope mismatch in {path}")
-    merged = blank(scope)
-    merged.update(data)
     return merged
 
 
 @contextlib.contextmanager
-def locked(scope):
-    _, lock_path = state_paths(scope)
+def locked(_scope=None):
+    _, lock_path = state_paths()
     descriptor = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o644)
     deadline = time.monotonic() + LOCK_TIMEOUT
     try:
@@ -75,8 +103,8 @@ def locked(scope):
         os.close(descriptor)
 
 
-def write_atomic(scope, data):
-    path, _ = state_paths(scope)
+def write_atomic(_scope, data):
+    path, _ = state_paths()
     temporary = f"{path}.tmp.{os.getpid()}"
     with open(temporary, "w", encoding="utf-8") as output:
         json.dump(data, output, indent=2, ensure_ascii=False)
@@ -100,7 +128,7 @@ def merge_seen(data, ids):
         if normalized not in known:
             seen.append(normalized)
             known.add(normalized)
-    data["seen_ids"] = seen[-MAX_SEEN:]
+    data["seen_ids"] = seen
 
 
 def mark_seen(scope, ids):
@@ -113,7 +141,7 @@ def mark_seen(scope, ids):
 
 def filter_seen(scope, ids):
     seen = set(read_state(scope).get("seen_ids") or [])
-    return [item_id for item_id in ids if item_id not in seen]
+    return [item_id for item_id in ids if item_id.casefold() not in seen]
 
 
 def load_index(path):
@@ -163,6 +191,7 @@ def record(scope, ids, fetched, written):
         merge_seen(data, ids)
         data["last_run"] = {
             "at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
+            "source": scope,
             "fetched": fetched,
             "written": written,
         }

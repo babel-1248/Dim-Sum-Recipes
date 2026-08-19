@@ -8,7 +8,7 @@ Say **"run"** to execute the full pipeline:
 
 1. Validate `DATE_RANGE`, `LANGUAGE`, and `SPOKEN_LANGUAGE`
 2. Fetch the matching GitHub Trending repositories page
-3. Remove repositories already saved for this exact filter combination
+3. Remove repositories already saved under any filter combination
 4. Convert each fresh repository card to a Markdown note
 5. Add every note to Pachinko in checkpointed batches
 
@@ -24,7 +24,7 @@ The recipe never processes GitHub Trending developers.
 
 ## State
 
-Saved repositories are tracked under `.feed-state/`, independently for each canonical combination of date range, programming language, and spoken language. Each successful note is checkpointed immediately, so a partial run can resume without recreating completed notes.
+Saved repositories are tracked in one shared `.feed-state/github-trending.json` file regardless of date range, programming language, or spoken language. Existing per-filter state files are merged automatically. Each successful note is checkpointed immediately, so a partial run or configuration change cannot recreate completed notes.
 
 ## Environment Configuration
 

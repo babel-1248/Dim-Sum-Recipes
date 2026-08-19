@@ -1,6 +1,6 @@
 ---
 name: run
-description: Run the GitHub Trends recipe. Validate the configured rolling date range, programming language, and spoken language; fetch repository cards from github.com/trending; add fresh repositories to Pachinko as checkpointed Markdown notes; and update per-filter deduplication state. Use when the user says "run" in this recipe.
+description: Run the GitHub Trends recipe. Validate the configured rolling date range, programming language, and spoken language; fetch repository cards from github.com/trending; add fresh repositories to Pachinko as checkpointed Markdown notes; and update shared repository deduplication state. Use when the user says "run" in this recipe.
 ---
 
 **Never use the Agent tool. Do not spawn sub-agents or background workers at any point during this skill.**
@@ -25,9 +25,9 @@ or create notes from `/trending/developers`.
 - Process every repository card returned by the configured page. There is no
   hidden note limit.
 - Preserve GitHub's ranking order.
-- Deduplicate repositories by case-insensitive `owner/repository` within the
-  exact canonical filter URL. Changing filters creates an independent state
-  scope.
+- Deduplicate repositories globally by case-insensitive `owner/repository`.
+  Date range, programming-language, and spoken-language changes all share the
+  same repository state.
 - Never delete a note. Report a suspected duplicate and leave it in place.
 - Never advance state after an invalid configuration, unexpected page, parser
   failure, or incomplete note queue.
@@ -60,8 +60,8 @@ python3 ./.claude/skills/run/scripts/fetch.py \
 ```
 
 Omit an optional argument when its JSON value is `null`. Capture the JSON
-summary, especially `source`, which is the canonical state scope and the exact
-Trending repository page represented by the notes.
+summary, especially `source`, which is the exact Trending repository page
+represented by the notes and is retained as run metadata.
 
 The fetcher first reads GitHub's current repository filter menus. It accepts a
 programming-language display name or path slug and a spoken-language display
@@ -82,7 +82,8 @@ page manually and do not edit the script during a run.
 
 ## Step 2 — Remove previously saved repositories
 
-Use the canonical `source` URL from Step 1 as `SCOPE`:
+Use the canonical `source` URL from Step 1 as `SCOPE`. It is recorded as run
+metadata; repository deduplication is shared across all scopes:
 
 ```bash
 python3 ./.claude/skills/run/scripts/feedstate.py filter-seen \
@@ -92,8 +93,8 @@ python3 ./.claude/skills/run/scripts/feedstate.py filter-seen \
 ```
 
 Capture the fetched, fresh, and already-seen counts. State-based deduplication
-is authoritative; Pachinko note listings are not guaranteed to contain every
-note.
+is authoritative across every configuration; Pachinko note listings are not
+guaranteed to contain every note.
 
 ## Step 3 — Convert fresh repository cards
 
@@ -180,8 +181,7 @@ infer completion from elapsed time, context compaction, or a partial tool
 success. If execution continues in another turn, the next `pending` response is
 authoritative because successful notes were checkpointed individually.
 
-Do not set a due date and do not run two copies of the same filter scope
-concurrently.
+Do not set a due date and do not run two copies of this recipe concurrently.
 
 ## Step 5 — Record the completed run
 
@@ -212,12 +212,14 @@ configured function ID. Verify complete delivery before finishing.
 
 ## State location
 
-State is stored in a hashed per-scope file under `<project>/.feed-state/`.
-Mutations use an exclusive `flock` and atomic replacement. Override the state
-directory with `GITHUB_TRENDING_STATE`, or the project root with
+State is stored in the shared `<project>/.feed-state/github-trending.json`
+file. Mutations use an exclusive `flock` and atomic replacement. Existing
+hashed per-scope files are automatically merged so previously created notes
+remain deduplicated. Override the state directory with
+`GITHUB_TRENDING_STATE`, or the project root with
 `GITHUB_TRENDING_PROJECT_DIR`.
 
-Inspect a known scope with:
+Inspect the shared state with any source URL as `SCOPE`:
 
 ```bash
 python3 ./.claude/skills/run/scripts/feedstate.py show --scope "$SCOPE"
