@@ -1,14 +1,17 @@
 # Sync US Weather
 
-A Claude Code and Codex recipe that maintains one rolling Pachinko weather note for a required five-digit US ZIP code. Each refresh contains hourly temperature, conditions, precipitation, wind, US AQI, and PM2.5 for the previous seven days and next seven days.
+A Claude Code and Codex recipe that creates a new Pachinko weather note on every run for a required five-digit US ZIP code. Each note contains hourly temperature, conditions, precipitation, wind, US AQI, and PM2.5 through the configured number of days ahead.
 
-The replacement is interruption-safe: the new note is created and checkpointed before the previous note is deleted. A durable replacement journal lets a later continuation finish cleanup without creating another replacement.
+On its first successful run, the inclusive window starts seven days before today. On later runs, it starts on the last successful sync date, with the start capped at seven days before today. The end is `DAYS_AHEAD` days after today. `DAYS_AHEAD` defaults to `1`, so leaving it unset or empty preserves the assumption that the note runs through tomorrow.
+
+Existing notes are never listed, edited, replaced, or deleted and do not influence the date window. State advances only after Pachinko successfully creates the new note. If creation fails, the prior successful date remains unchanged.
 
 ## Configuration
 
 | Variable | Description |
 | --- | --- |
 | `ZIP_CODE` *(required)* | One five-digit US ZIP code, including any leading zero. |
+| `DAYS_AHEAD` *(optional)* | Forecast days after today, from `0` through `6`. Defaults to `1` (through tomorrow). The maximum reflects the air-quality feed's seven-day forecast including today. |
 
 No API key or account is required. `SAVE_TO_PROJECT_ID`, when provided by the Pachinko wrapper, controls the destination; the recipe contains no hardcoded destination project.
 
@@ -25,4 +28,4 @@ Resolving a new ZIP sends that ZIP to Zippopotam.us. Each refresh sends its cach
 
 ## Refresh behavior
 
-The stable note title is `US Weather — ZIP (City, ST)`. Since Pachinko note creation is additive, the recipe creates the refreshed note first, records its note ID, and then removes older notes with the exact same title. Do not manually annotate the generated note because those edits will not survive a refresh.
+Every note title includes its inclusive date range: `US Weather — ZIP (City, ST) — YYYY-MM-DD to YYYY-MM-DD`. Every run creates an additional note; prior generated notes remain untouched.

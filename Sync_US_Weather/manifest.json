@@ -7,9 +7,14 @@
   ],
   "variables": {
     "ZIP_CODE": {
-      "description": "The required five-digit US ZIP code whose rolling hourly weather and air-quality note will be refreshed.",
+      "description": "The required five-digit US ZIP code for each new hourly weather and air-quality note.",
       "type": "string",
       "required": true
+    },
+    "DAYS_AHEAD": {
+      "description": "Optional number of forecast days after today to include, from 0 through 6. Defaults to 1, so notes include tomorrow when this variable is unset or empty. The maximum reflects the air-quality feed's seven-day forecast including today.",
+      "type": "string",
+      "required": false
     }
   }
 }

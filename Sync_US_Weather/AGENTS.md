@@ -20,6 +20,7 @@ When calling Pachinko `add_note` for a weather snapshot:
 
 - Always use `note_body_file_path` with the Markdown file produced by the bundled fetcher.
 - Never send the rendered hourly table in `note_body`.
-- Follow the checkpointed create-then-delete replacement order in the run skill.
+- Create a new note on every run; never list, edit, replace, or delete older weather notes.
+- Record the successful sync date only after `add_note` returns the new note ID.
 
 This Codex project provides the Pachinko MCP server for the user's Sync US Weather work.

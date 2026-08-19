@@ -7,6 +7,7 @@ import os
 
 VARIABLE_NAMES = (
     "ZIP_CODE",
+    "DAYS_AHEAD",
     "QUEUE_FUNCTION_IDS",
     "FEED_ID",
     "SAVE_TO_PROJECT_ID",

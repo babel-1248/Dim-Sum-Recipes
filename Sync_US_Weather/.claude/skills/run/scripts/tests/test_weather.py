@@ -13,7 +13,7 @@ os.sys.path.insert(0, str(SCRIPTS))
 import fetch  # noqa: E402
 import geocode  # noqa: E402
 import httpclient  # noqa: E402
-import refreshstate  # noqa: E402
+import syncstate  # noqa: E402
 import wmo  # noqa: E402
 
 
@@ -50,7 +50,7 @@ class RenderTests(unittest.TestCase):
         )
         markdown = fetch.render_markdown({
             "zip": "02108", "place": "Boston", "state_abbr": "MA"
-        }, hours, "2026-08-18 10:00 EDT")
+        }, hours, "2026-08-18 10:00 EDT", "2026-08-11", "2026-08-19")
 
         self.assertEqual(2, len(hours))
         self.assertEqual("now", hours[0]["when"])
@@ -59,11 +59,25 @@ class RenderTests(unittest.TestCase):
         self.assertIn("0.02 in", markdown)
         self.assertIn("Open-Meteo", markdown)
         self.assertIn("Zippopotam.us", markdown)
+        self.assertIn("2026-08-11 through 2026-08-19", markdown)
 
     def test_weather_and_aqi_lookups_handle_boundaries(self):
         self.assertEqual("Clear sky", wmo.weather_text(0))
         self.assertEqual("Moderate", wmo.aqi_category(100))
         self.assertEqual("Unhealthy (Sensitive Groups)", wmo.aqi_category(101))
+
+    def test_provider_requests_use_the_exact_date_window(self):
+        with mock.patch.object(fetch.CLIENT, "get_json", return_value={}) as get_json:
+            fetch.fetch_forecast(42.357, -71.064, "2026-08-12", "2026-08-20")
+            forecast_params = get_json.call_args.args[1]
+            fetch.fetch_aqi(42.357, -71.064, "2026-08-12", "2026-08-20")
+            aqi_params = get_json.call_args.args[1]
+
+        for params in (forecast_params, aqi_params):
+            self.assertEqual("2026-08-12", params["start_date"])
+            self.assertEqual("2026-08-20", params["end_date"])
+            self.assertNotIn("past_days", params)
+            self.assertNotIn("forecast_days", params)
 
     def test_fetch_main_writes_one_note_manifest_and_index(self):
         place = {
@@ -76,7 +90,8 @@ class RenderTests(unittest.TestCase):
                 mock.patch.object(fetch, "fetch_forecast", return_value=forecast), \
                 mock.patch.object(fetch, "fetch_aqi", return_value=self.aqi), \
                 mock.patch.object(os.sys, "argv", [
-                    "fetch.py", "02108", "--out", output,
+                    "fetch.py", "02108", "--start", "2026-08-11",
+                    "--end", "2026-08-19", "--out", output,
                 ]):
             fetch.main()
             index = json.loads(pathlib.Path(output, "index.json").read_text())
@@ -84,7 +99,11 @@ class RenderTests(unittest.TestCase):
 
         self.assertEqual(1, len(index))
         self.assertEqual("02108", index[0]["zip"])
-        self.assertEqual("US Weather — 02108 (Boston, MA)", index[0]["note_title"])
+        self.assertEqual(
+            "US Weather — 02108 (Boston, MA) — 2026-08-11 to 2026-08-19",
+            index[0]["note_title"])
+        self.assertEqual("2026-08-11", index[0]["window_start"])
+        self.assertEqual("2026-08-19", manifest["window_end"])
         self.assertEqual(2, index[0]["hour_count"])
         self.assertEqual(1, index[0]["unhealthy_hours"])
         self.assertEqual(2, len(manifest["hours"]))
@@ -99,7 +118,7 @@ class HttpClientTests(unittest.TestCase):
             httpclient._validate_url("https://api.open-meteo.com.evil.example/data")
 
 
-class RefreshStateTests(unittest.TestCase):
+class SyncStateTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.environment = mock.patch.dict(
@@ -111,48 +130,94 @@ class RefreshStateTests(unittest.TestCase):
         self.temp.cleanup()
 
     @staticmethod
-    def stage_args(new_id="new-1"):
+    def success_args(note_id="note-1"):
         return argparse.Namespace(
             destination="project-1",
             zip_code="02108",
-            title="US Weather — 02108 (Boston, MA)",
-            new_note_id=new_id,
-            old_note_id=["old-1", "old-1", "old-2"],
-            content_sha256="abc123",
-            generated_at="2026-08-18T10:00:00-04:00",
+            note_id=note_id,
+            sync_date="2026-08-18",
         )
 
-    def test_stage_is_durable_deduplicated_and_destination_scoped(self):
-        staged = refreshstate.stage(self.stage_args())
+    def test_success_record_is_durable_and_destination_scoped(self):
+        successful = syncstate.record_success(self.success_args())
         persisted = json.loads(pathlib.Path(
             self.temp.name, "weather.json").read_text())
 
-        self.assertEqual(["old-1", "old-2"], staged["old_note_ids"])
-        self.assertEqual("new-1", persisted["staged"][
-            "project-1\n02108"]["new_note_id"])
-        self.assertIsNone(refreshstate.read()["active"].get("default\n02108"))
+        self.assertEqual("note-1", successful["note_id"])
+        self.assertEqual("note-1", persisted["last_successful"][
+            "project-1\n02108"]["note_id"])
+        self.assertIsNone(
+            syncstate.read()["last_successful"].get("default\n02108"))
         self.assertEqual(0o600, pathlib.Path(
             self.temp.name, "weather.json").stat().st_mode & 0o777)
 
-    def test_completion_promotes_new_note_and_clears_pending_cleanup(self):
-        refreshstate.stage(self.stage_args())
-        active = refreshstate.complete("project-1", "02108")
-        data = refreshstate.read()
+    def test_first_run_starts_seven_days_back_and_ends_tomorrow(self):
+        window = syncstate.resolve_window(
+            "project-1", "02108", today="2026-08-19")
 
-        self.assertEqual("new-1", active["new_note_id"])
-        self.assertEqual({}, data["staged"])
-        self.assertEqual("new-1", data["active"]["project-1\n02108"]["new_note_id"])
+        self.assertTrue(window["first_run"])
+        self.assertEqual("2026-08-12", window["start"])
+        self.assertEqual("2026-08-20", window["end"])
+        self.assertEqual(1, window["days_ahead"])
 
-    def test_second_new_note_cannot_overwrite_unfinished_replacement(self):
-        refreshstate.stage(self.stage_args())
+    def test_configured_days_ahead_controls_the_end_date(self):
+        window = syncstate.resolve_window(
+            "project-1", "02108", today="2026-08-19", days_ahead="3")
+
+        self.assertEqual("2026-08-22", window["end"])
+        self.assertEqual(3, window["days_ahead"])
+
+    def test_zero_days_ahead_ends_on_today(self):
+        window = syncstate.resolve_window(
+            "project-1", "02108", today="2026-08-19", days_ahead="0")
+
+        self.assertEqual("2026-08-19", window["end"])
+
+    def test_days_ahead_must_be_between_zero_and_six(self):
+        for invalid in ("-1", "7", "1.5", "one", ""):
+            with self.subTest(invalid=invalid), self.assertRaises(SystemExit):
+                syncstate.resolve_window(
+                    "project-1", "02108", today="2026-08-19",
+                    days_ahead=invalid)
+
+    def test_repeat_run_starts_on_last_successful_sync_date(self):
+        syncstate.record_success(self.success_args())
+
+        window = syncstate.resolve_window(
+            "project-1", "02108", today="2026-08-19")
+
+        self.assertFalse(window["first_run"])
+        self.assertEqual("2026-08-18", window["start"])
+        self.assertEqual("2026-08-20", window["end"])
+
+    def test_repeat_run_never_looks_back_more_than_seven_days(self):
+        args = self.success_args()
+        args.sync_date = "2026-07-01"
+        syncstate.record_success(args)
+
+        window = syncstate.resolve_window(
+            "project-1", "02108", today="2026-08-19")
+
+        self.assertEqual("2026-08-12", window["start"])
+        self.assertEqual("2026-08-20", window["end"])
+
+    def test_resolving_and_fetching_a_window_does_not_mark_success(self):
+        syncstate.resolve_window("project-1", "02108", today="2026-08-19")
+
+        self.assertFalse(pathlib.Path(self.temp.name, "weather.json").exists())
+
+    def test_success_requires_a_returned_note_id(self):
+        args = self.success_args(note_id="")
         with self.assertRaises(SystemExit):
-            refreshstate.stage(self.stage_args(new_id="new-2"))
+            syncstate.record_success(args)
+
+        self.assertFalse(pathlib.Path(self.temp.name, "weather.json").exists())
 
     def test_destination_cannot_create_a_state_key_collision(self):
-        args = self.stage_args()
+        args = self.success_args()
         args.destination = "project-1\n02108"
         with self.assertRaises(SystemExit):
-            refreshstate.stage(args)
+            syncstate.record_success(args)
 
 
 if __name__ == "__main__":

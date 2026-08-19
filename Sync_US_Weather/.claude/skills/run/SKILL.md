@@ -1,19 +1,19 @@
 ---
 name: run
-description: Run the Sync US Weather recipe. Validate the required ZIP_CODE, fetch a rolling hourly weather and US AQI window from keyless providers, render one Pachinko note, safely replace the prior note through a resumable journal, and queue the new note for configured post-processing. Use when the user says "run" in this recipe.
+description: Run the Sync US Weather recipe. Validate ZIP_CODE and optional DAYS_AHEAD, derive a date window from the last successfully created note, fetch hourly weather and US AQI, create a new Pachinko note, record success, and queue the note for configured post-processing. Use when the user says "run" in this recipe.
 ---
 
 **Never use the Agent tool. Do not spawn sub-agents or background workers at any point during this skill.**
 
 # Sync US Weather
 
-Run the entire workflow non-interactively. Work in the session scratchpad
-(`$SCRATCH`) and invoke scripts through project-relative paths under
-`./.claude/skills/run/scripts/`. Never parallelize provider requests.
+Run the workflow non-interactively. Work in `$SCRATCH` and invoke scripts through
+project-relative paths under `./.claude/skills/run/`. Never parallelize provider
+requests.
 
-This is a rolling refresh, not an append-only archive. Maintain exactly one
-generated note for the configured ZIP and destination. Because Pachinko note
-creation is additive, use the checkpointed create-then-delete order below.
+This feed is append-only. Create one new note on every run. Never list, search,
+edit, replace, or delete an existing weather note. Existing notes do not affect
+the workflow; only the recorded last-successful sync date affects the window.
 
 ## Step 0 — Resolve configuration
 
@@ -22,45 +22,37 @@ Read `ZIP_CODE` only from that object. It is required and must match exactly
 five ASCII digits; preserve leading zeroes. If it is `null`, empty, or invalid,
 report the configuration error and stop before making network or Pachinko calls.
 
-Use fixed window defaults:
-
-- `past_days = 7`
-- `forecast_days = 7`
-- Fahrenheit, mph, inches, US AQI, and PM2.5
+Read `DAYS_AHEAD` only from the same captured object. If it is `null` or empty,
+use `1`; this is the documented default and means the note includes tomorrow.
+Otherwise require an ASCII integer from `0` through `6`, inclusive. `0` ends
+the window on today. Report an invalid value and stop before network or Pachinko
+calls. Preserve the validated integer as `DAYS_AHEAD` for the entire run.
 
 Follow **Creating Notes** in `./CLAUDE.md` to resolve the destination from the
-captured `SAVE_TO_PROJECT_ID`. Use a stable destination-state token: the
-resolved project ID when a project is used, or `default` when Pachinko's default
-destination is used. Never choose or hardcode a destination inside this skill.
+captured `SAVE_TO_PROJECT_ID`. Use the resolved project ID as the destination
+state token, or `default` when Pachinko's default destination is used. Never
+choose or hardcode a destination inside this skill.
 
-## Step 1 — Resume staged replacements first
+Use Fahrenheit, mph, inches, US AQI, and PM2.5.
 
-Before fetching new data, inspect the durable replacement journal:
+## Step 1 — Derive the date window
+
+Run:
 
 ```bash
-python3 ./.claude/skills/run/scripts/refreshstate.py pending
+python3 ./.claude/skills/run/scripts/syncstate.py window \
+  --destination "$DESTINATION_TOKEN" --zip "$ZIP_CODE" \
+  --days-ahead "$DAYS_AHEAD"
 ```
 
-For every staged replacement, in order:
+Capture its JSON as the authoritative `TODAY`, `START_DATE`, and `END_DATE`.
+On a first run, `START_DATE` is seven days before `TODAY`. On later runs it is
+the last successfully recorded sync date, but never earlier than seven days
+before `TODAY`. `END_DATE` is `DAYS_AHEAD` days after `TODAY`. All dates are
+inclusive, so the default first run contains nine calendar dates: seven days
+back, today, and tomorrow. Never calculate or widen the window independently.
 
-1. Delete each ID under `old_note_ids` with Pachinko `delete_tool`. Treat an
-   already-missing note as cleaned up. Retry a transient failure up to three
-   total attempts; on any unresolved deletion, stop without creating another
-   note. The staged new note remains available.
-2. After every old ID is deleted or confirmed missing, complete the journal:
-
-   ```bash
-   python3 ./.claude/skills/run/scripts/refreshstate.py complete \
-     --destination "$STAGED_DESTINATION" --zip "$STAGED_ZIP"
-   ```
-
-3. Collect the staged `new_note_id` for the post-execution queue workflow.
-
-If a completed staged replacement matches this run's resolved destination and
-`ZIP_CODE`, the interrupted refresh is now complete. Skip Steps 2–4 and continue
-to the completion invariant. Do not immediately replace the recovered note
-again. Otherwise continue with the configured ZIP after all staged cleanup is
-terminal.
+This command is read-only and must not advance the successful-run state.
 
 ## Step 2 — Fetch and render
 
@@ -68,108 +60,74 @@ Run:
 
 ```bash
 python3 ./.claude/skills/run/scripts/fetch.py "$ZIP_CODE" \
-  --past-days 7 --forecast-days 7 --out "$SCRATCH/us-weather"
+  --start "$START_DATE" --end "$END_DATE" --out "$SCRATCH/us-weather"
 ```
 
 Capture the printed JSON and read the generated `index.json` and
 `manifest.json`. Require exactly one index entry whose `zip` equals the
-configured ZIP, whose `file` exists, and whose `note_title` is non-empty.
-Stop without changing the existing Pachinko note if fetching, geocoding,
-rendering, or validation fails.
+configured ZIP, whose `file` exists, whose `window_start` and `window_end`
+equal the requested dates, and whose `note_title` is non-empty. Stop without
+changing success state if fetching, geocoding, rendering, or validation fails.
 
-The stable title is generated by Python:
+The generated title always contains the inclusive range:
 
-`US Weather — ZIP (City, ST)`
+`US Weather — ZIP (City, ST) — YYYY-MM-DD to YYYY-MM-DD`
 
-Use it unchanged as the replacement key. The note body contains one hourly row
-for the complete rolling window and includes source attribution. Never paste
-the table into a tool parameter; use its file path.
+The note body contains one hourly row for the complete window and includes
+source attribution. Never paste the table into a tool parameter; use its file
+path.
 
-## Step 3 — Find prior generated notes
-
-List or search notes in the resolved destination for the exact generated title.
-Exhaust available pagination or exact-title search. Collect every matching note
-ID because an earlier interrupted run may have left a duplicate.
-
-Also request the journal's recorded active note:
-
-```bash
-python3 ./.claude/skills/run/scripts/refreshstate.py active \
-  --destination "$DESTINATION_TOKEN" --zip "$ZIP_CODE"
-```
-
-Union its `new_note_id`, when present, with the exact-title results. These are
-the old note IDs. Do not delete any of them yet. Do not select notes by a partial
-title, ZIP substring, or destination-wide age rule.
-
-## Step 4 — Create, checkpoint, then clean up
+## Step 3 — Create the new note, then record success
 
 1. Call Pachinko `add_note` with the index entry's `note_title` and
    `note_body_file_path` set to its `file`. Use the resolved destination. Retry
-   transient failures up to three total attempts. If creation does not succeed,
-   stop and leave all existing notes untouched.
-2. Immediately stage the successful creation before any other Pachinko call:
+   transient failures up to three total attempts.
+2. If `add_note` does not return a non-empty new note ID, stop. Do not call
+   `record-success`, do not advance the date, and do not queue a note.
+3. Only after successful note creation, record that success:
 
    ```bash
-   python3 ./.claude/skills/run/scripts/refreshstate.py stage \
+   python3 ./.claude/skills/run/scripts/syncstate.py record-success \
      --destination "$DESTINATION_TOKEN" --zip "$ZIP_CODE" \
-     --title "$NOTE_TITLE" --new-note-id "$NEW_NOTE_ID" \
-     --content-sha256 "$CONTENT_SHA256" --generated-at "$GENERATED_AT" \
-     [--old-note-id "$OLD_NOTE_ID"]...
+     --sync-date "$TODAY" --note-id "$NEW_NOTE_ID"
    ```
 
-   If checkpointing fails, retry it before proceeding. If it still fails, stop
-   and report the new note ID and ZIP; never delete the old note in this state.
-3. Call `set_note_source` for the new note with `source_type: "webpage"`.
-   Retry transient failures up to three total attempts, then report the source
-   metadata failure and continue; it does not invalidate the weather note.
-4. Delete every staged old note ID, one at a time. Treat already-missing IDs as
-   success. Retry transient failures up to three total attempts. If one remains
-   unresolved, stop; the new and old notes coexist safely and Step 1 will resume
-   cleanup later.
-5. Complete the journal only after every old note is gone:
-
-   ```bash
-   python3 ./.claude/skills/run/scripts/refreshstate.py complete \
-     --destination "$DESTINATION_TOKEN" --zip "$ZIP_CODE"
-   ```
-
-6. Collect the new note ID for the post-execution queue workflow in
+   Retry a transient state-write failure up to three total attempts. The command
+   is idempotent for the same values. Verify with `syncstate.py show` that the
+   destination-and-ZIP entry contains the returned note ID and `TODAY`. If
+   recording cannot be verified, report the created note ID and
+   state failure; the prior successful date remains authoritative for the next
+   run.
+4. Call `set_note_source` for the new note with `source_type: "webpage"`.
+   Retry transient failures up to three total attempts, then report the metadata
+   warning and continue; the note was still successfully created.
+5. Collect the new note ID for the post-execution queue workflow in
    `./CLAUDE.md`.
 
-Never delete first. Never delete unrelated notes. Do not treat a partial
-progress update, tool count, elapsed time, or context compaction as completion.
+Never record success before `add_note` returns the new note ID. Never inspect or
+remove older weather notes. If execution stops after note creation but before
+the state write, the next run intentionally reuses the prior successful date.
 
-## Step 5 — Completion invariant
+## Step 4 — Report
 
-Run `refreshstate.py pending` again. Do not finish until all conditions hold:
-
-- `terminal` is `true`
-- `count` is `0`
-- the configured ZIP has either been newly completed in Step 4 or recovered in
-  Step 1
-
-If a tool or execution limit interrupts the turn, continue the same staged
-cleanup on the next automatic continuation. The journal is authoritative.
-
-## Step 6 — Report
-
-Report the ZIP, resolved city/state, generated hour count, rolling window,
-destination mode, whether the note was newly created or replaced/recovered, and
-the new note ID. Surface any hours with AQI above 150 and any fetch or source
-metadata warnings. State the fixed seven-day history and seven-day forecast
-defaults.
+Report the ZIP, resolved city/state, generated hour count, inclusive date
+window, configured days ahead, destination mode, new note ID, and whether this
+was the first recorded run. Surface hours with AQI above 150 and any fetch,
+state, source metadata, or queue warnings.
 
 ## State commands
 
-State is stored in `<project>/.feed-state/weather.json`. Mutations use an
-exclusive `flock`, atomic replacement, and an fsync before replacement.
+State is stored in `<project>/.feed-state/weather.json`, keyed by destination
+and ZIP. Mutations use an exclusive `flock`, an atomic file swap, and an fsync.
 
 ```bash
-python3 ./.claude/skills/run/scripts/refreshstate.py show
-python3 ./.claude/skills/run/scripts/refreshstate.py pending
-python3 ./.claude/skills/run/scripts/refreshstate.py reset
+python3 ./.claude/skills/run/scripts/syncstate.py show
+python3 ./.claude/skills/run/scripts/syncstate.py window \
+  --destination "$DESTINATION_TOKEN" --zip "$ZIP_CODE" --days-ahead 1
+python3 ./.claude/skills/run/scripts/syncstate.py reset
 ```
+
+The state contains only successful creation records.
 
 ZIP coordinates are cached in `<project>/.weather-cache/zip_geo.json`. Override
 the state directory with `RESEARCH_FEED_STATE`, the project root with

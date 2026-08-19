@@ -22,9 +22,10 @@ HOURLY_FORECAST_VARS = ",".join([
     "precipitation_probability", "weather_code", "wind_speed_10m",
 ])
 HOURLY_AQI_VARS = "us_aqi,pm2_5"
+MAX_WINDOW_SPAN_DAYS = 13
 
 
-def fetch_forecast(latitude, longitude, past_days, forecast_days):
+def fetch_forecast(latitude, longitude, start_date, end_date):
     return CLIENT.get_json(FORECAST_URL, {
         "latitude": latitude,
         "longitude": longitude,
@@ -33,19 +34,19 @@ def fetch_forecast(latitude, longitude, past_days, forecast_days):
         "wind_speed_unit": "mph",
         "precipitation_unit": "inch",
         "timezone": "auto",
-        "past_days": past_days,
-        "forecast_days": forecast_days,
+        "start_date": start_date,
+        "end_date": end_date,
     })
 
 
-def fetch_aqi(latitude, longitude, past_days, forecast_days):
+def fetch_aqi(latitude, longitude, start_date, end_date):
     return CLIENT.get_json(AQI_URL, {
         "latitude": latitude,
         "longitude": longitude,
         "hourly": HOURLY_AQI_VARS,
         "timezone": "auto",
-        "past_days": past_days,
-        "forecast_days": forecast_days,
+        "start_date": start_date,
+        "end_date": end_date,
     })
 
 
@@ -104,10 +105,11 @@ def number(value, suffix=""):
     return "--" if value is None else f"{round(value):,}{suffix}"
 
 
-def render_markdown(place, hours, generated_at):
+def render_markdown(place, hours, generated_at, start_date, end_date):
     location = f"{place['place']}, {place['state_abbr']}"
     lines = [
-        f"**ZIP {place['zip']} — {cell(location)}** · synced {generated_at}",
+        f"**ZIP {place['zip']} — {cell(location)}** · "
+        f"**{start_date} through {end_date}** · synced {generated_at}",
         "",
         "| Date | Time | Temp | Feels | Conditions | Precip | Wind | AQI | PM2.5 |",
         "|---|---|---:|---:|---|---:|---:|---|---:|",
@@ -167,32 +169,47 @@ def local_now(forecast_json):
     return datetime.datetime.now(timezone)
 
 
+def iso_date(value, option):
+    try:
+        return datetime.date.fromisoformat(value)
+    except (TypeError, ValueError) as exc:
+        raise argparse.ArgumentTypeError(
+            f"{option} must be an ISO date in YYYY-MM-DD form") from exc
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("zip_code")
-    parser.add_argument("--past-days", type=int, default=7)
-    parser.add_argument("--forecast-days", type=int, default=7)
+    parser.add_argument("--start", required=True)
+    parser.add_argument("--end", required=True)
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
-    if not 0 <= args.past_days <= 92:
-        parser.error("--past-days must be between 0 and 92")
-    if not 1 <= args.forecast_days <= 16:
-        parser.error("--forecast-days must be between 1 and 16")
+    try:
+        start = iso_date(args.start, "--start")
+        end = iso_date(args.end, "--end")
+    except argparse.ArgumentTypeError as exc:
+        parser.error(str(exc))
+    if start > end:
+        parser.error("--start must not be after --end")
+    if (end - start).days > MAX_WINDOW_SPAN_DAYS:
+        parser.error("the inclusive weather window cannot exceed 14 calendar days")
 
     try:
         place = geocode.resolve(args.zip_code)
     except ValueError as exc:
         parser.error(str(exc))
     forecast = fetch_forecast(
-        place["latitude"], place["longitude"], args.past_days, args.forecast_days)
+        place["latitude"], place["longitude"], args.start, args.end)
     air_quality = fetch_aqi(
-        place["latitude"], place["longitude"], args.past_days, args.forecast_days)
+        place["latitude"], place["longitude"], args.start, args.end)
     now = local_now(forecast)
     now_iso_hour = now.strftime("%Y-%m-%dT%H:00")
     generated_at = now.isoformat(timespec="seconds")
     hours = build_hours(forecast, hourly_aqi_by_time(air_quality), now_iso_hour)
-    markdown = render_markdown(place, hours, now.strftime("%Y-%m-%d %H:%M %Z"))
-    title = f"US Weather — {place['zip']} ({place['place']}, {place['state_abbr']})"
+    markdown = render_markdown(
+        place, hours, now.strftime("%Y-%m-%d %H:%M %Z"), args.start, args.end)
+    title = (f"US Weather — {place['zip']} "
+             f"({place['place']}, {place['state_abbr']}) — {args.start} to {args.end}")
 
     os.makedirs(args.out, exist_ok=True)
     note_path = os.path.abspath(os.path.join(args.out, f"{place['zip']}.md"))
@@ -206,14 +223,16 @@ def main():
         "file": note_path,
         "generated_at": generated_at,
         "content_sha256": content_hash,
+        "window_start": args.start,
+        "window_end": args.end,
         "hour_count": len(hours),
         "unhealthy_hours": sum(
             1 for hour in hours if (hour.get("us_aqi") or 0) > 150),
     }
     manifest = {
         "feed": "us-weather",
-        "past_days": args.past_days,
-        "forecast_days": args.forecast_days,
+        "window_start": args.start,
+        "window_end": args.end,
         "place": place,
         "generated_at": generated_at,
         "hours": hours,
@@ -232,6 +251,8 @@ def main():
         "note_title": title,
         "hour_count": len(hours),
         "content_sha256": content_hash,
+        "window_start": args.start,
+        "window_end": args.end,
     }, ensure_ascii=False))
 
 
