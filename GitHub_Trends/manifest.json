@@ -1,0 +1,25 @@
+{
+  "name": "GitHub Trends",
+  "version": "1.0.0",
+  "supportedAgents": [
+    "Claude Code",
+    "Codex"
+  ],
+  "variables": {
+    "DATE_RANGE": {
+      "description": "Choose daily, weekly, or monthly. Defaults to daily.",
+      "type": "string",
+      "required": false
+    },
+    "LANGUAGE": {
+      "description": "Filter by programming language, such as Python or C++. Leave blank for all languages.",
+      "type": "string",
+      "required": false
+    },
+    "SPOKEN_LANGUAGE": {
+      "description": "Filter by spoken language, such as English. Leave blank for all spoken languages.",
+      "type": "string",
+      "required": false
+    }
+  }
+}
