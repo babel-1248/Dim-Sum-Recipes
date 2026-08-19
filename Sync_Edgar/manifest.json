@@ -1,13 +1,13 @@
 {
   "name": "Sync EDGAR",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "supportedAgents": [
     "Claude Code",
     "Codex"
   ],
   "variables": {
     "FILTER_FILE": {
-      "description": "An optional text file containing SEC EDGAR feed instructions. It may specify tickers, CIKs, form types, excluded forms, amendment handling, an EDGAR full-text query, a filing-date window, relevance criteria, requested 10-K/10-Q sections, exhibit handling, and a positive note limit or no limit. If not set or empty, the recipe performs a market-wide 8-K run for the resolved window with the default 20-note limit.",
+      "description": "An optional text file containing SEC EDGAR feed instructions. It may specify tickers, CIKs, form types (including 13F-HR institutional holdings), excluded forms, amendment handling, an EDGAR full-text query, a filing-date window, relevance criteria, requested 10-K/10-Q sections, exhibit handling, and a positive note limit or no limit. If not set or empty, the recipe performs a market-wide 8-K run for the resolved window with the default 20-note limit.",
       "type": "file",
       "required": false
     },

@@ -1,6 +1,6 @@
 ---
 name: run
-description: Run the Sync EDGAR recipe. Load optional instructions from FILTER_FILE, incrementally fetch SEC EDGAR filings, filter and convert filing documents and exhibits, add one Pachinko note per selected filing in verified batches, and update resumable accession state. Use when the user says "run" in this recipe.
+description: Run the Sync EDGAR recipe. Load optional instructions from FILTER_FILE, incrementally fetch SEC EDGAR filings, filter and convert filing documents and exhibits, parse Forms 13F-HR and 13F-HR/A into complete institutional holdings tables, add one Pachinko note per selected filing in verified batches, and update resumable accession state. Use when the user says "run" in this recipe.
 ---
 
 **Never use the Agent tool. Do not spawn sub-agents or background workers at any point during this skill.**
@@ -100,6 +100,11 @@ Do not claim to filter Form 4 transaction codes before conversion; transaction
 codes live in the ownership XML, not the metadata manifest. A request for
 insider activity resolves layer 1 to Forms 3/4/5 as appropriate, and the final
 report uses the converter's decoded ownership facts.
+
+A request for institutional, fund-manager, super-investor, or 13F holdings
+resolves layer 1 to `13F-HR` (including `13F-HR/A` unless amendments are
+disabled). Do not treat `13F-NT` as a holdings report; it is a notice filing.
+Do not infer buys, sells, or quarter-to-quarter changes from a single 13F.
 
 ## Step 1 — Determine the filing-date window
 
@@ -210,8 +215,16 @@ argument when exhibits were explicitly disabled.
 The converter fetches primary documents sequentially. It also fetches matching
 documents from full-text search and the selected exhibit types; `EX-99` is
 normally essential for 8-K press releases. Forms 3/4/5 use the ownership XML
-parser and produce decoded transaction tables. Check and report warnings,
-truncations, and filings with no retrieved document text.
+parser and produce decoded transaction tables. Forms 13F-HR and 13F-HR/A locate
+the filing's separate `INFORMATION TABLE` XML attachment and produce a complete,
+value-sorted holdings table containing issuer, class, CUSIP, FIGI, value,
+portfolio weight, shares/principal, put/call, discretion, other manager, and
+voting authority. Values are normalized to dollars while retaining whether the
+SEC row was reported in dollars or thousands. The parser does not compare
+quarters or characterize position changes. Never truncate a parsed 13F holdings
+table; every reported row is required for later comparison. Check and report
+warnings, truncations of other filing documents, and filings with no retrieved
+document text.
 
 ## Step 7 — Create Pachinko notes
 
@@ -310,8 +323,10 @@ accessions.
 Report the window, mode, companies, forms, exclusions, full-text query,
 layer-2 criterion, requested sections, exhibit policy, resolved note limit, and
 fetched → fresh → kept → selected → written → deferred counts. Include material
-8-K items, decoded ownership activity, conversion warnings, note failures,
-representative exclusions, and the next since-date.
+8-K items, decoded ownership activity, 13F holding counts and total reported
+values, conversion warnings, note failures, representative exclusions, and the
+next since-date. Never report a quarter-to-quarter 13F comparison unless a
+separate workflow explicitly performed one.
 
 Name defaults used: initial seven-day lookback, market-wide `8-K`, amendments
 included, `EX-99` exhibits, complete filing bodies, and the 20-note cap.

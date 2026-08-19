@@ -1,6 +1,6 @@
 # Sync EDGAR
 
-A Claude Code and Codex recipe that incrementally syncs SEC EDGAR filings into Pachinko, one note per filing. It decodes material 8-K item codes, converts filing HTML and exhibits to Markdown, supports selected 10-K/10-Q sections, and renders Forms 3/4/5 as ownership transaction tables.
+A Claude Code and Codex recipe that incrementally syncs SEC EDGAR filings into Pachinko, one note per filing. It decodes material 8-K item codes, converts filing HTML and exhibits to Markdown, supports selected 10-K/10-Q sections, renders Forms 3/4/5 as ownership transaction tables, and parses 13F-HR information-table XML into complete institutional holdings tables.
 
 On the first run, the recipe limits the initial lookback to seven days unless the filter gives another date range. Later runs resume from stored state without duplicating saved accessions. Every successful note is checkpointed immediately, and a deterministic pending-count check keeps processing until every selected filing has either been saved or explicitly reported as failed.
 
@@ -10,11 +10,17 @@ Example filter:
 
 ```text
 Watch AAPL, MSFT, and NVDA.
-Include 8-K, 10-K, 10-Q, and Form 4; exclude amendments and Form 144.
+Include 8-K, 10-K, 10-Q, Form 4, and 13F-HR; exclude amendments and Form 144.
 Keep filings with material 8-K items and decode any Form 4 activity.
 For annual and quarterly reports, include Items 1A and 7. Keep EX-99 exhibits.
 Limit this run to 20 notes.
 ```
+
+For `13F-HR` and `13F-HR/A`, each note includes every reported holdings row
+with issuer, class, CUSIP, FIGI, normalized dollar value, portfolio weight,
+shares or principal amount, put/call, investment discretion, other-manager
+reference, and voting authority. The recipe does not infer trades or perform a
+quarter-to-quarter comparison.
 
 ## Customization
 
