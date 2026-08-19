@@ -1,0 +1,15 @@
+{
+  "name": "Sync US Weather",
+  "version": "1.0.0",
+  "supportedAgents": [
+    "Claude Code",
+    "Codex"
+  ],
+  "variables": {
+    "ZIP_CODE": {
+      "description": "The required five-digit US ZIP code whose rolling hourly weather and air-quality note will be refreshed.",
+      "type": "string",
+      "required": true
+    }
+  }
+}

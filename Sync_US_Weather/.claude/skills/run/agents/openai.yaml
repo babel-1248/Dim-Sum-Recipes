@@ -1,0 +1,4 @@
+interface:
+  display_name: "Run Sync US Weather"
+  short_description: "Refresh hourly US weather in Pachinko"
+  default_prompt: "Use $run to refresh the configured US ZIP weather note in Pachinko."

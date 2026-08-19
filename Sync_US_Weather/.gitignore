@@ -1,0 +1,4 @@
+.feed-state/
+.weather-cache/
+__pycache__/
+*.pyc
