@@ -1,4 +1,4 @@
-# Sync GitHub Trending Recipe
+# GitHub Trends Recipe
 
 A Claude Code and Codex recipe that syncs repository cards from GitHub Trending into Pachinko notes.
 

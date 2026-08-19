@@ -1,4 +1,4 @@
-# Sync GitHub Trending Recipe
+# GitHub Trends Recipe
 
 # Mandatory Startup Procedure
 

@@ -1,4 +1,4 @@
-# Sync GitHub Trending
+# GitHub Trends
 
 A Claude Code and Codex recipe that adds repositories from [GitHub Trending](https://github.com/trending) to Pachinko. It supports Trending repositories only, not developers.
 

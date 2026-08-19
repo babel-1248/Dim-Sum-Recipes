@@ -1,5 +1,5 @@
 {
-  "name": "Sync GitHub Trending",
+  "name": "GitHub Trends",
   "version": "1.0.0",
   "supportedAgents": [
     "Claude Code",

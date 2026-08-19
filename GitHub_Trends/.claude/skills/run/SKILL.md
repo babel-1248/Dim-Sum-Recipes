@@ -1,11 +1,11 @@
 ---
 name: run
-description: Run the Sync GitHub Trending recipe. Validate the configured rolling date range, programming language, and spoken language; fetch repository cards from github.com/trending; add fresh repositories to Pachinko as checkpointed Markdown notes; and update per-filter deduplication state. Use when the user says "run" in this recipe.
+description: Run the GitHub Trends recipe. Validate the configured rolling date range, programming language, and spoken language; fetch repository cards from github.com/trending; add fresh repositories to Pachinko as checkpointed Markdown notes; and update per-filter deduplication state. Use when the user says "run" in this recipe.
 ---
 
 **Never use the Agent tool. Do not spawn sub-agents or background workers at any point during this skill.**
 
-# Sync GitHub Trending
+# GitHub Trends
 
 Run the entire workflow non-interactively. Apply the defaults below, echo the
 resolved configuration, and continue without asking for confirmation. Work in
