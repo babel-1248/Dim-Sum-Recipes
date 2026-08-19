@@ -1,6 +1,6 @@
 # Sync EDGAR Recipe
 
-A Claude Code and Codex recipe that syncs SEC EDGAR filings into Pachinko notes using optional filter instructions.
+A Claude Code and Codex recipe that syncs SEC EDGAR filings into Pachinko notes using optional filter instructions, including parsed institutional holdings for Forms 13F-HR and 13F-HR/A.
 
 ## Usage
 

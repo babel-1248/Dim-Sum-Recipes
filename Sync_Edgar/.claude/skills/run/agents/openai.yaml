@@ -1,4 +1,4 @@
 interface:
   display_name: "Run Sync EDGAR"
-  short_description: "Sync SEC EDGAR filings into Pachinko"
+  short_description: "Sync SEC filings and parsed 13F holdings"
   default_prompt: "Use $run to sync the configured SEC EDGAR feed into Pachinko."

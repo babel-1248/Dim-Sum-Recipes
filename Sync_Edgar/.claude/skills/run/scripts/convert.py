@@ -5,11 +5,15 @@ Everything expensive lives here on purpose. A 10-K is 1-15 MB of HTML; a filing
 rejected by the relevance pass must cost zero requests, so nothing is downloaded
 until it has survived stage 1.
 
-Three EDGAR-specific behaviours:
+Four EDGAR-specific behaviours:
 
   * **Forms 3/4/5 bypass the HTML path entirely.** They are already structured
     XML, so form4.py builds a real transaction table with the transaction codes
     decoded. See that module for why the code column is the whole point.
+
+  * **13F-HR holdings come from a separate information-table XML document.**
+    form13f.py preserves every reported position and normalizes its value to
+    dollars. It does not infer trades or compare the filing with another quarter.
 
   * **An 8-K's content is usually not in the 8-K.** The form itself is often a
     two-line shell saying "see Exhibit 99.1 attached hereto", and the press
@@ -35,6 +39,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from edgarhtml2md import html_to_markdown, text_from_txt      # noqa: E402
+from form13f import information_table_to_markdown             # noqa: E402
 from form4 import ownership_to_markdown, short_action          # noqa: E402
 from fetch import Client, ITEMS_8K                             # noqa: E402
 
@@ -65,6 +70,17 @@ def slug(text, limit=60):
 
 def is_ownership(form):
     return form.split("/")[0].strip().upper() in OWNERSHIP_FORMS
+
+
+def is_13f_holdings(form):
+    return form.strip().upper() in ("13F-HR", "13F-HR/A")
+
+
+def machine_readable_filename(filename):
+    """Strip EDGAR's XSL rendering directory from an XML document path."""
+    if "/" in filename and filename.split("/", 1)[0].lower().startswith("xsl"):
+        return filename.split("/", 1)[1]
+    return filename
 
 
 # ---- exhibit discovery ----------------------------------------------------
@@ -107,6 +123,44 @@ def wanted_exhibits(docs, entry, patterns):
                 entry.get("matched_files") or []):
             out.append((etype, fname, desc))
     return out
+
+
+def information_table_candidates(docs, entry):
+    """Return likely 13F information-table documents, strongest match first."""
+    primary = {entry.get("primary_document"), entry.get("raw_document")}
+    typed, fallback = [], []
+    for doc_type, filename, description in docs:
+        raw_name = machine_readable_filename(filename)
+        label = f"{doc_type} {description}".upper()
+        candidate = (raw_name, doc_type, description)
+        if "INFORMATION TABLE" in label:
+            typed.append(candidate)
+        elif (raw_name.lower().endswith(".xml")
+              and filename not in primary and raw_name not in primary):
+            fallback.append(candidate)
+    return typed + fallback
+
+
+def convert_13f(client, entry, docs):
+    """Return (markdown, warnings, facts) for a 13F-HR information table."""
+    warnings = []
+    for filename, doc_type, description in information_table_candidates(docs, entry):
+        try:
+            raw = client.get(f"{entry['base_url']}/{filename}")
+        except Exception as exc:                              # noqa: BLE001
+            warnings.append(f"could not fetch 13F information table {filename}: {exc}")
+            continue
+        md, parsed_warnings, facts = information_table_to_markdown(
+            raw, filed=entry.get("filed"))
+        if facts:
+            facts = dict(facts, information_table_file=filename)
+            return md, warnings + parsed_warnings, facts
+        # Untyped XML candidates may be cover sheets or other supporting data.
+        # Ignore the expected root-mismatch warning and keep looking.
+        if "INFORMATION TABLE" in f"{doc_type} {description}".upper():
+            warnings += parsed_warnings
+    warnings.append("13F information table was not found in the filing")
+    return "", warnings, {}
 
 
 # ---- 10-K / 10-Q section slicing -----------------------------------------
@@ -223,6 +277,30 @@ def build(e, outdir, client, args):
         if md:
             parts.append(md)
         e = dict(e, ownership=facts)
+    elif is_13f_holdings(e["form"]):
+        docs = filing_documents(client, e)
+        md, warns, facts = convert_13f(client, e, docs)
+        warnings += warns
+        if md:
+            # A partial holdings table is misleading and cannot be compared
+            # reliably later, so do not apply the prose-document truncation cap.
+            parts.append(md)
+            body_bytes += len(md)
+
+        # Preserve a readable cover sheet when EDGAR has no parseable modern
+        # information-table attachment (notably historical text-era filings).
+        if not md and e.get("raw_document"):
+            primary = e["raw_document"]
+            cover, warn = convert_document(
+                client, f"{e['base_url']}/{primary}", primary)
+            if warn:
+                warnings.append(warn)
+            if cover:
+                cover, warn = truncate(cover, args.max_doc_bytes)
+                if warn:
+                    warnings.append(f"{primary}: {warn}")
+                parts.append(f"## {e.get('primary_description') or e['form']}\n\n{cover}")
+                body_bytes += len(cover)
     else:
         facts = {}
         primary = e.get("raw_document")
@@ -310,7 +388,10 @@ def build(e, outdir, client, args):
         "file": os.path.abspath(path),
         "bytes": len(doc),
         "has_body": bool(parts),
-        "ownership": facts or None,
+        "ownership": (facts or None) if is_ownership(e["form"]) else None,
+        "institutional_holdings": (
+            {key: value for key, value in facts.items() if key != "holdings"}
+            if is_13f_holdings(e["form"]) and facts else None),
         "warning": "; ".join(warnings) or None,
     }
 
@@ -322,6 +403,10 @@ def note_title(e, facts):
         names = ", ".join(o["name"] for o in facts["owners"])
         return (f"{who} — Form {facts.get('document_type') or e['form']}: "
                 f"{names} {short_action(facts)} {e['filed']}")
+    if is_13f_holdings(e["form"]) and facts.get("entry_count") is not None:
+        period = e.get("report_date") or e["filed"]
+        return (f"{who} — {e['form']} holdings for {period}: "
+                f"{facts['entry_count']:,} positions")
     if e.get("items"):
         labels = [ITEMS_8K.get(i, i) for i in (e.get("material_items") or e["items"])[:2]]
         return f"{who} — {e['form']}: {'; '.join(labels)} {e['filed']}"
