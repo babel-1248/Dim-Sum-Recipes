@@ -1,0 +1,4 @@
+interface:
+  display_name: "Run FRED Economic Indicators"
+  short_description: "Sync selected FRED indicators into Pachinko"
+  default_prompt: "Use $run to sync the checked FRED economic indicators into Pachinko."
