@@ -63,7 +63,10 @@ Resolve the loaded filter instructions into:
    like a judgement call but is really
    `presidential_document_type[]=executive_order`, a free narrowing. The congress
    feeds have no query interface at all; their only cheap narrowings are date
-   window, `--source bills,votes` and `--bill-type`.
+   window, `--source bills,votes` and `--bill-type`. Watch the two flags' syntax:
+   `--source` takes one comma-separated list, `--bill-type` is repeat-only — one
+   flag per type, `--bill-type hr --bill-type hjres`. A bill-type restriction from
+   the filter belongs here on the fetch, not in layer 2.
 3. **Layer 2 relevance criterion.** Everything left over. The *same* criterion is
    applied to all three feeds, but judged against each feed's own fields.
 4. **Per-feed note limit.** Default each feed to 50. Recognize explicit filter
@@ -113,11 +116,21 @@ silently drop anything that landed after the last run. Duplicates are prevented 
 python3 ./.claude/skills/run/scripts/fr_fetch.py --since $SINCE --out "$SCRATCH/<feed>" [--condition K=V]…
 # house / senate
 python3 ./.claude/skills/run/scripts/congress_fetch.py --chamber <house|senate> --since $SINCE \
-    --out "$SCRATCH/<feed>" [--source bills,votes] [--bill-type …]
+    --out "$SCRATCH/<feed>" [--source bills,votes] [--bill-type hr --bill-type hjres]
 ```
 Neither downloads full text. Congress fetches take a couple of minutes for a week:
 bulkdata exposes only a `lastModified` stamp, so every touched BILLSTATUS is read
 and the ~1 in 8 with a real in-window action is kept.
+
+**A non-zero exit is an aborted feed, not an empty one.** `congress_fetch.py` exits
+non-zero on a rejected `--bill-type` or a failed bulkdata listing, and writes no
+manifest. Do not treat that as a quiet window. For that feed: skip the rest of
+step 1 — including step 1h, so its watermark stays put and the window is re-scanned
+next run — then carry on with the remaining feeds in order. Record the exit status
+and the script's last line of stderr, and report the feed as **aborted** in step 2.
+Never re-run a failed fetch with the restriction dropped to make it succeed; a
+narrowing that the script rejected is a filter or script bug, and widening it
+silently syncs categories the filter excluded.
 
 ### 1c. Drop anything already synced
 
@@ -209,6 +222,23 @@ state advances. Never record a deferred or failed ID as written.
 One table: per feed, window covered, resolved note limit, fetched → fresh → kept →
 selected → written → deferred, warnings, and the next since-date. Name any feed
 skipped and why.
+
+Give every feed one of three plain outcomes, and never blur the last two:
+
+- **synced** — the feed ran end to end. A row of zeros here means the window was
+  genuinely quiet.
+- **skipped** — the filter excluded the feed. Say which instruction did it.
+- **aborted** — the fetch exited non-zero, so the feed did **not** sync and its
+  coverage of this window is unknown. Zeros in this row are the absence of data,
+  not the absence of activity.
+
+For an aborted feed, state in the prose under the table: that it did not sync, the
+error it failed on, that its watermark was deliberately left unadvanced, and that
+the window will be re-scanned on the next run. Say this even when every other feed
+succeeded and even when the aborted feed would probably have been empty — a run
+that reports "no activity" while a feed never actually ran is the one failure this
+recipe must not produce. If any feed aborted, lead the report with that rather than
+with the table.
 
 ## State files
 

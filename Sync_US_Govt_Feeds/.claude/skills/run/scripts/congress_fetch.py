@@ -241,8 +241,10 @@ def fetch_bills(since, until, congress, bill_types, jobs, limit=None):
                                    {"Accept": "application/json"},
                                    timeout=180))["files"]
         except Exception as exc:  # noqa: BLE001
-            print(f"  {bt}: listing failed ({exc})", file=sys.stderr)
-            continue
+            # Never downgrade this to a warning: an empty candidate list is
+            # indistinguishable from a recess downstream, so a bulkdata outage
+            # would be reported as "no activity" rather than as a failure.
+            sys.exit(f"  {bt}: listing failed ({exc})")
         recent = []
         for f in files:
             # The listing also carries a per-congress .zip bundle.
@@ -574,7 +576,8 @@ def main():
     ap.add_argument("--until", help="inclusive YYYY-MM-DD (default: today)")
     ap.add_argument("--source", default="bills,votes",
                     help="comma list: bills, votes (default both)")
-    ap.add_argument("--bill-type", action="append", help="restrict bill types")
+    ap.add_argument("--bill-type", action="append",
+                    help="restrict bill types; repeatable and/or comma-separated")
     ap.add_argument("--congress", type=int, help="congress number (default: derived)")
     ap.add_argument("--jobs", type=int, default=8)
     ap.add_argument("--limit", type=int, help="cap candidate bills (testing)")
@@ -585,7 +588,14 @@ def main():
     sources = {s.strip() for s in args.source.split(",") if s.strip()}
     congress = args.congress or current_congress(
         datetime.datetime.strptime(args.since, "%Y-%m-%d"))
-    bill_types = args.bill_type or CHAMBERS[args.chamber]
+    valid_types = CHAMBERS[args.chamber]
+    bill_types = [t.strip().lower()
+                  for arg in (args.bill_type or [])
+                  for t in arg.split(",") if t.strip()] or valid_types
+    unknown = [t for t in bill_types if t not in valid_types]
+    if unknown:
+        sys.exit(f"unknown {args.chamber} bill type(s): {', '.join(unknown)} "
+                 f"(valid: {', '.join(valid_types)})")
 
     os.makedirs(args.out, exist_ok=True)
     print(f"{args.chamber}: window {args.since} .. {until}  congress {congress}  "
