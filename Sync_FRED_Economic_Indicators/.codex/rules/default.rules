@@ -1,0 +1,29 @@
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/config.py"],
+    decision = "allow",
+    justification = "Allow validating the FRED API key shape and indicator checklist without printing the key.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/fetch.py"],
+    decision = "allow",
+    justification = "Allow fetching selected FRED Version 2 release data.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/convert.py"],
+    decision = "allow",
+    justification = "Allow rendering selected FRED indicators as a Markdown snapshot.",
+)
+
+prefix_rule(
+    pattern = ["python3", "./.claude/skills/run/scripts/feedstate.py"],
+    decision = "allow",
+    justification = "Allow managing destination-scoped FRED snapshot state.",
+)
+
+prefix_rule(
+    pattern = [".claude/scripts/read_environment.py"],
+    decision = "allow",
+    justification = "Allow reading the Pachinko routing environment configuration as JSON.",
+)

@@ -1,0 +1,20 @@
+{
+  "name": "Sync FRED Economic Indicators",
+  "version": "1.0.1",
+  "supportedAgents": [
+    "Claude Code",
+    "Codex"
+  ],
+  "variables": {
+    "FRED_API_KEY": {
+      "description": "A required FRED API Version 2 key. It is sent only in the HTTPS Authorization header and is never written to notes, recipe state, or generated files.",
+      "type": "string",
+      "required": true
+    },
+    "FILTER_FILE": {
+      "description": "An optional Markdown checklist selecting economic indicators and history depth. Checked items are included and unchecked items are ignored. When unset or empty, the recipe includes all 14 bundled indicators and the latest 13 observations for each.",
+      "type": "file",
+      "required": false
+    }
+  }
+}
