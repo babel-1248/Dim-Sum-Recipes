@@ -12,5 +12,5 @@ The default history is the latest 13 observations for each indicator. This gives
 
 | Variable | Description |
 | --- | --- |
-| `FRED_API_KEY` *(required)* | A FRED API key. |
+| `FRED_API_KEY` *(required)* | A [FRED API Version 2 key](https://fred.stlouisfed.org/docs/api/fred/v2/api_key.html). |
 | `FILTER_FILE` *(optional)* | A Markdown checklist for choosing indicators and history length. Without one, the recipe includes all 14 bundled indicators and their latest 13 observations. |
