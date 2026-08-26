@@ -1,6 +1,6 @@
 {
   "name": "Sync FRED Economic Indicators",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "supportedAgents": [
     "Claude Code",
     "Codex"

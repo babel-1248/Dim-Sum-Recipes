@@ -1,5 +1,6 @@
 import json
 import os
+from decimal import Decimal
 from pathlib import Path
 import sys
 import tempfile
@@ -240,12 +241,46 @@ class ConvertTests(unittest.TestCase):
         title, body = convert.build_markdown(self.manifest())
 
         self.assertEqual("FRED Economic Indicators — 2026-08-12 update", title)
-        self.assertIn("Headline CPI", body)
+        self.assertIn("Consumer Price Index (headline)", body)
+        self.assertIn(
+            "| Category | Indicator | As of | Latest level | Change vs prior observation | Change vs year ago | Units |",
+            body,
+        )
+        self.assertNotIn("| Observation | Latest | Previous | Period change |", body)
         self.assertIn("+3 (+1%)", body)
-        self.assertIn("+12 (+4.12%)", body)
+        self.assertIn("+4.12% (+12 index points)", body)
         self.assertIn("| 2026-07-01 | 303 |", body)
+        self.assertIn("Each row has its own **As of** date", body)
+        self.assertIn("Most recent observation in this snapshot", body)
+        self.assertIn("| Observation date | Reported level |", body)
         self.assertIn("FRED API Terms of Use", body)
         self.assertIn("public domain: citation requested", body)
+
+    def test_change_formatting_explains_rates_and_thousands(self):
+        self.assertEqual(
+            "-23,000 jobs (-0.01%)",
+            convert.change_text(
+                Decimal("158858"),
+                Decimal("158881"),
+                "Thousands of Persons",
+                "PAYEMS",
+            ),
+        )
+        self.assertEqual(
+            "-176,000 units (-12.44%)",
+            convert.change_text(
+                Decimal("1239"),
+                Decimal("1415"),
+                "Thousands of Units",
+                "HOUST",
+            ),
+        )
+        self.assertEqual(
+            "-0.1 pp (-10 bp)",
+            convert.change_text(
+                Decimal("4.1"), Decimal("4.2"), "Percent", "UNRATE"
+            ),
+        )
 
     def test_snapshot_id_is_deterministic_and_changes_with_rendered_data(self):
         manifest = self.manifest()

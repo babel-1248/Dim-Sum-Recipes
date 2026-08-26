@@ -17,6 +17,13 @@ FRED_HOME = "https://fred.stlouisfed.org/"
 FRED_API_DOCS = "https://fred.stlouisfed.org/docs/api/fred/v2/"
 FRED_TERMS = "https://fred.stlouisfed.org/docs/api/terms_of_use.html"
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}\Z", re.ASCII)
+PRICE_INDEX_SERIES = {"CPIAUCSL", "CPILFESL", "PCEPI", "PCEPILFE"}
+DISPLAY_LABELS = {
+    "CPIAUCSL": "Consumer Price Index (headline)",
+    "CPILFESL": "Consumer Price Index (core)",
+    "PCEPI": "PCE price index",
+    "PCEPILFE": "Core PCE price index",
+}
 
 
 def safe_cell(value):
@@ -113,7 +120,15 @@ def format_percent(value):
     return f"{prefix}{format_decimal(rounded)}%"
 
 
-def change_text(current, previous, units):
+def absolute_change_text(difference, units, series_id):
+    if series_id == "PAYEMS":
+        return f"{signed(difference * 1000)} jobs"
+    if (units or "").casefold() == "thousands of units":
+        return f"{signed(difference * 1000)} units"
+    return signed(difference)
+
+
+def change_text(current, previous, units, series_id=None, annual=False):
     if previous is None:
         return "—"
     difference = current - previous
@@ -121,8 +136,14 @@ def change_text(current, previous, units):
         basis_points = (difference * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
         return f"{signed(difference)} pp ({signed(basis_points)} bp)"
     percent = None if previous == 0 else (current / previous - 1) * 100
-    absolute = signed(difference)
+    absolute = absolute_change_text(difference, units, series_id)
+    if annual and series_id in PRICE_INDEX_SERIES and percent is not None:
+        return f"{format_percent(percent)} ({signed(difference)} index points)"
     return absolute if percent is None else f"{absolute} ({format_percent(percent)})"
+
+
+def display_label(indicator, series):
+    return DISPLAY_LABELS.get(series.get("series_id"), indicator["label"])
 
 
 def select_history(observations, mode):
@@ -202,14 +223,16 @@ def build_markdown(manifest):
         "",
         "A point-in-time snapshot of the selected economic indicators from the Federal Reserve Bank of St. Louis.",
         "",
-        f"**Latest observation through:** {latest_date}  ",
-        f"**Latest selected-series update:** {safe_cell(latest_update)}  ",
+        f"**Most recent observation in this snapshot:** {latest_date}  ",
+        f"**Most recent FRED update among selected series:** {safe_cell(latest_update)}  ",
         f"**History selection:** {history_labels[mode]}",
         "",
         "## Summary",
         "",
-        "| Category | Indicator | Observation | Latest | Previous | Period change | Year change | Units |",
-        "| --- | --- | --- | ---: | ---: | ---: | ---: | --- |",
+        "Each row has its own **As of** date. **Change vs prior observation** compares with the preceding weekly, monthly, or quarterly observation for that series. Rate changes are shown in percentage points (pp) and basis points (bp). For CPI and PCE price indexes, the percentage shown first under **Change vs year ago** is the year-over-year inflation rate. Payroll changes are expanded from thousands of persons to jobs.",
+        "",
+        "| Category | Indicator | As of | Latest level | Change vs prior observation | Change vs year ago | Units |",
+        "| --- | --- | --- | ---: | ---: | ---: | --- |",
     ]
 
     for document in documents:
@@ -220,13 +243,12 @@ def build_markdown(manifest):
         annual = document["annual"]
         units = series.get("units", "")
         series_link = f"https://fred.stlouisfed.org/series/{series['series_id']}"
-        label = f"[{safe_cell(indicator['label'])}]({series_link})"
+        label = f"[{safe_cell(display_label(indicator, series))}]({series_link})"
         lines.append(
             f"| {safe_cell(indicator['category'])} | {label} | {latest['date_text']} | "
             f"{format_value(latest['value'], units)} | "
-            f"{format_value(previous['value'], units) if previous else '—'} | "
-            f"{change_text(latest['value'], previous['value'] if previous else None, units)} | "
-            f"{change_text(latest['value'], annual['value'] if annual else None, units)} | "
+            f"{change_text(latest['value'], previous['value'] if previous else None, units, series['series_id'])} | "
+            f"{change_text(latest['value'], annual['value'] if annual else None, units, series['series_id'], annual=True)} | "
             f"{safe_cell(units or 'Not reported')} |"
         )
 
@@ -236,14 +258,15 @@ def build_markdown(manifest):
         release = document["release"]
         series = document["series"]
         observations = document["observations"]
+        label = display_label(indicator, series)
         if indicator["category"] != current_category:
             current_category = indicator["category"]
             lines.extend(["", f"## {current_category}", ""])
         series_link = f"https://fred.stlouisfed.org/series/{series['series_id']}"
         lines.extend([
-            f"### [{indicator['label']}]({series_link})",
+            f"### [{label}]({series_link})",
             "",
-            safe_cell(series.get("title") or indicator["label"]),
+            safe_cell(series.get("title") or label),
             "",
             f"- **Series:** `{series['series_id']}`",
             f"- **Release:** [{release['name']}]({release_url(release)})",
@@ -254,7 +277,7 @@ def build_markdown(manifest):
             f"- **Copyright:** {safe_cell(series.get('copyright_id') or 'Not reported')}",
         ])
         if mode != "latest":
-            lines.extend(["", "| Date | Value |", "| --- | ---: |"])
+            lines.extend(["", "| Observation date | Reported level |", "| --- | ---: |"])
             for observation in reversed(select_history(observations, mode)):
                 lines.append(
                     f"| {observation['date_text']} | "
@@ -284,7 +307,7 @@ def build_markdown(manifest):
         f"- [FRED API Version 2 documentation]({FRED_API_DOCS})",
         f"- [FRED API Terms of Use]({FRED_TERMS})",
         "",
-        "Period and year changes are calculated from the displayed FRED observation levels. The annual comparison uses the closest available observation on or just before the same date one year earlier. Missing observations reported by FRED as `.` are omitted. Values can be revised by their publishers.",
+        "Changes vs prior observation compare each series with its immediately preceding non-missing FRED observation, so the interval follows that series' reporting frequency. Changes vs year ago use the closest available observation on or just before the same date one year earlier. For series reported as percentages, changes are shown in percentage points and basis points. For CPI and PCE price indexes, the year-over-year percentage change is the inflation rate. Absolute payroll changes are expanded from thousands of persons to jobs. Missing observations reported by FRED as `.` are omitted. Values can be revised by their publishers.",
         "",
     ])
     return title, "\n".join(lines)
