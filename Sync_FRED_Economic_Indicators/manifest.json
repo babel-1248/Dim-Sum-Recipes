@@ -12,7 +12,7 @@
       "required": true
     },
     "FILTER_FILE": {
-      "description": "An optional Markdown checklist selecting economic indicators and history depth. Checked items are included and unchecked items are ignored. When unset or empty, the recipe uses its documented default indicator set and the latest two observations.",
+      "description": "An optional Markdown checklist selecting economic indicators and history depth. Checked items are included and unchecked items are ignored. When unset or empty, the recipe includes all 14 bundled indicators and the latest 13 observations for each.",
       "type": "file",
       "required": false
     }

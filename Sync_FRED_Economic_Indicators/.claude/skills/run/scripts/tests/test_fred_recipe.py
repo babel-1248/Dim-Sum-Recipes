@@ -44,23 +44,36 @@ def series_metadata(series_id, title, observations, units="Index 1982-1984=100")
 
 
 class ConfigurationTests(unittest.TestCase):
-    def test_defaults_are_broad_and_key_is_not_returned(self):
+    def test_defaults_include_every_indicator_with_compact_history(self):
         resolved = config.load_configuration({"FRED_API_KEY": FAKE_KEY})
 
         self.assertEqual("defaults", resolved["filter_source"])
-        self.assertEqual("latest", resolved["history"])
+        self.assertEqual("13", resolved["history"])
         self.assertEqual(
-            [
-                "Headline CPI",
-                "Core CPI",
-                "Unemployment rate",
-                "Payroll employment",
-                "Real GDP",
-                "Retail sales",
-            ],
+            [item["label"] for item in config.INDICATORS],
             [item["label"] for item in resolved["indicators"]],
         )
         self.assertNotIn(FAKE_KEY, json.dumps(resolved))
+
+    def test_bundled_checklist_matches_code_defaults(self):
+        checklist = (
+            Path(config.__file__).resolve().parents[4]
+            / "fred-indicators-filter.md"
+        ).read_text(encoding="utf-8")
+
+        configured = config.parse_checklist(checklist)
+        defaults = config.default_configuration()
+
+        self.assertEqual(defaults["history"], configured["history"])
+        self.assertEqual(
+            [item["key"] for item in defaults["indicators"]],
+            [item["key"] for item in configured["indicators"]],
+        )
+
+    def test_configured_checklist_without_history_uses_default_history(self):
+        resolved = config.parse_checklist("- [x] Headline CPI")
+
+        self.assertEqual("13", resolved["history"])
 
     def test_checklist_uses_checked_items_and_topmost_history_choice(self):
         markdown = """

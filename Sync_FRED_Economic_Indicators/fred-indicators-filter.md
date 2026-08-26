@@ -6,33 +6,33 @@ Check the indicators to include in each Pachinko snapshot.
 
 - [x] Headline CPI
 - [x] Core CPI
-- [ ] PCE inflation
-- [ ] Core PCE inflation
+- [x] PCE inflation
+- [x] Core PCE inflation
 
 ## Labor market
 
 - [x] Unemployment rate
 - [x] Payroll employment
-- [ ] Initial unemployment claims
+- [x] Initial unemployment claims
 
 ## Growth and activity
 
 - [x] Real GDP
-- [ ] Industrial production
+- [x] Industrial production
 - [x] Retail sales
 
 ## Housing
 
-- [ ] Housing starts
-- [ ] Building permits
+- [x] Housing starts
+- [x] Building permits
 
 ## Interest rates
 
-- [ ] Federal funds rate
-- [ ] 10-year Treasury yield
+- [x] Federal funds rate
+- [x] 10-year Treasury yield
 
 ## History — pick one
 
-- [x] Latest and previous observation
-- [ ] Last 13 observations
+- [ ] Latest and previous observation
+- [x] Last 13 observations
 - [ ] Last 5 years

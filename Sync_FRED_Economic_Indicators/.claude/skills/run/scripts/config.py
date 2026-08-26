@@ -127,14 +127,8 @@ INDICATORS = (
     },
 )
 
-DEFAULT_KEYS = (
-    "headline-cpi",
-    "core-cpi",
-    "unemployment-rate",
-    "payroll-employment",
-    "real-gdp",
-    "retail-sales",
-)
+DEFAULT_KEYS = tuple(indicator["key"] for indicator in INDICATORS)
+DEFAULT_HISTORY = "13"
 
 HISTORY_OPTIONS = {
     "latest and previous observation": "latest",
@@ -165,7 +159,7 @@ def validate_api_key(value):
 def default_configuration():
     return {
         "filter_source": "defaults",
-        "history": "latest",
+        "history": DEFAULT_HISTORY,
         "indicators": [dict(INDICATORS_BY_KEY[key]) for key in DEFAULT_KEYS],
         "warnings": [],
     }
@@ -211,7 +205,7 @@ def parse_checklist(contents):
         raise ValueError("FILTER_FILE must check at least one economic indicator")
 
     warnings = []
-    history_mode = history[0][2] if history else "latest"
+    history_mode = history[0][2] if history else DEFAULT_HISTORY
     if len(history) > 1:
         warnings.append(
             "Several history choices were checked; using the topmost checked choice "

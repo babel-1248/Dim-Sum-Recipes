@@ -32,9 +32,9 @@ python3 ./.claude/skills/run/scripts/config.py \
   --out "$SCRATCH/fred-economic-indicators/config.json"
 ```
 
-The script validates only the API key's required shape; it never writes or prints the key. It reads `FILTER_FILE` exactly once. If the file is unset or empty, it selects headline CPI, core CPI, unemployment rate, payroll employment, real GDP, retail sales, and the latest/previous history mode.
+The script validates only the API key's required shape; it never writes or prints the key. It reads `FILTER_FILE` exactly once. If the file is unset or empty, it selects all 14 bundled indicators and the last-13-observations history mode. This is the broad but compact default: current data and trend context without a full-history dump.
 
-For a configured checklist, the script includes checked (`- [x]`) indicators, ignores unchecked (`- [ ]`) indicators, and takes the topmost checked option in the **History — pick one** section. Stop before any provider request if configuration validation fails. Report any warning about multiple checked history choices.
+For a configured checklist, the script includes checked (`- [x]`) indicators, ignores unchecked (`- [ ]`) indicators, and takes the topmost checked option in the **History — pick one** section. If no history option is checked, it uses the default last 13 observations. Stop before any provider request if configuration validation fails. Report any warning about multiple checked history choices.
 
 Echo the resolved indicator labels and history mode without waiting for confirmation. Never reinterpret or silently repair an unknown checked option.
 

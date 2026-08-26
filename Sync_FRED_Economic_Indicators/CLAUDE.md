@@ -19,6 +19,8 @@ Say **"run"** to execute the full pipeline:
 3. Open this project in Claude Code or Codex
 4. Say "run"
 
+Without a configured checklist, the recipe includes all 14 bundled indicators and the latest 13 observations for each. This provides broad current coverage and a compact trend view rather than a full-history dump.
+
 ## State
 
 Created snapshot IDs are stored under `.feed-state/fred-economic-indicators.json`, scoped by Pachinko destination. Snapshot IDs are derived from the rendered title and body, so unchanged output is not recreated. State advances only after Pachinko returns a note ID.
