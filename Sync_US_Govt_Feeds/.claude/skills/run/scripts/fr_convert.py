@@ -5,6 +5,12 @@ Reads manifest.json from fetch.py plus an optional keep-list (the survivors of t
 relevance pass) and writes one markdown file per document, each opening with a
 header carrying the metadata and the deadlines, followed by the converted body.
 
+FederalRegister.gov's document API supplies the metadata, but its returned
+full_text_xml_url and raw_text_url point at website routes that reject automated
+access. Full text therefore comes from the matching official GovInfo daily XML
+issue. An issue is downloaded only once per run, even when several selected
+documents were published on the same day.
+
 Emits index.json listing {document_number, title, section, file} in publication
 order so the caller can create notes without re-deriving anything.
 
@@ -14,18 +20,52 @@ Usage:
 """
 import argparse
 import concurrent.futures
+import html.parser
 import json
 import os
 import re
 import sys
+import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from frxml2md import xml_to_markdown  # noqa: E402
 
 USER_AGENT = "federal-register-feed (personal note archive)"
+
+_ISSUE_FUTURES = {}
+_ISSUE_FUTURES_LOCK = threading.Lock()
+_FR_DOC_RE = re.compile(
+    r"\bFR\s+Doc(?:ument)?(?:\.|\s+No\.?:?)?\s*([A-Z0-9]+(?:-\d+)+)\b",
+    re.IGNORECASE,
+)
+
+
+class _PreTextParser(html.parser.HTMLParser):
+    """Extract the preformatted text from a GovInfo document page."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.in_pre = False
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() == "pre":
+            self.in_pre = True
+        elif self.in_pre and tag.lower() == "br":
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag.lower() == "pre":
+            self.in_pre = False
+
+    def handle_data(self, data):
+        if self.in_pre:
+            self.parts.append(data)
 
 
 def get_bytes(url, retries=4):
@@ -44,6 +84,98 @@ def get_bytes(url, retries=4):
                 raise
             time.sleep(2 ** attempt)
     raise RuntimeError("exhausted retries")
+
+
+def govinfo_package(doc):
+    """Return the GovInfo Federal Register package name for a document."""
+    pdf_url = doc.get("pdf_url") or ""
+    path = urllib.parse.urlparse(pdf_url).path
+    match = re.match(r"^/content/pkg/(FR-[^/]+)/pdf/[^/]+\.pdf$", path)
+    if match:
+        return match.group(1)
+    if doc.get("publication_date"):
+        return f"FR-{doc['publication_date']}"
+    return None
+
+
+def govinfo_issue_xml_url(doc):
+    """Return the official GovInfo daily-issue XML URL for a document."""
+    package = govinfo_package(doc)
+    if not package:
+        return None
+    quoted = urllib.parse.quote(package, safe="-")
+    return f"https://www.govinfo.gov/content/pkg/{quoted}/xml/{quoted}.xml"
+
+
+def govinfo_document_html_url(doc):
+    """Return the official GovInfo plain-text HTML URL for a document."""
+    package = govinfo_package(doc)
+    number = doc.get("document_number")
+    if not package or not number:
+        return None
+    return (
+        "https://www.govinfo.gov/content/pkg/"
+        f"{urllib.parse.quote(package, safe='-')}/html/"
+        f"{urllib.parse.quote(number, safe='-')}.htm"
+    )
+
+
+def index_issue_xml(xml_bytes):
+    """Map Federal Register document numbers to their document-level XML."""
+    root = ET.fromstring(xml_bytes)
+    parents = {child: parent for parent in root.iter() for child in parent}
+    documents = {}
+    for frdoc in root.iter("FRDOC"):
+        text = " ".join("".join(frdoc.itertext()).split())
+        match = _FR_DOC_RE.search(text)
+        parent = parents.get(frdoc)
+        if match and parent is not None:
+            documents[match.group(1).upper()] = ET.tostring(
+                parent, encoding="utf-8", xml_declaration=True)
+    return documents
+
+
+def issue_documents(url):
+    """Fetch and index a daily issue once, coordinating concurrent workers."""
+    with _ISSUE_FUTURES_LOCK:
+        future = _ISSUE_FUTURES.get(url)
+        owner = future is None
+        if owner:
+            future = concurrent.futures.Future()
+            _ISSUE_FUTURES[url] = future
+
+    if owner:
+        try:
+            future.set_result(index_issue_xml(get_bytes(url)))
+        except BaseException as exc:
+            future.set_exception(exc)
+    return future.result()
+
+
+def get_document_xml(doc):
+    """Fetch one document from its official GovInfo daily XML issue."""
+    issue_url = govinfo_issue_xml_url(doc)
+    if not issue_url:
+        raise ValueError("document has no publication date or GovInfo package URL")
+    number = (doc.get("document_number") or "").upper()
+    xml = issue_documents(issue_url).get(number)
+    if not xml:
+        raise ValueError(f"document {number} not found in {issue_url}")
+    return xml
+
+
+def get_document_text(doc):
+    """Fetch a document's basic text from its official GovInfo HTML page."""
+    url = govinfo_document_html_url(doc)
+    if not url:
+        raise ValueError("document has no number or GovInfo package URL")
+    parser = _PreTextParser()
+    parser.feed(get_bytes(url).decode("utf-8", "replace"))
+    text = "".join(parser.parts).replace("\x00", "")
+    text = "\n".join(line.rstrip() for line in text.splitlines()).strip()
+    if not text:
+        raise ValueError(f"no preformatted document text found at {url}")
+    return text
 
 
 def slug(text, maxlen=60):
@@ -136,22 +268,18 @@ def header(doc, body=""):
 def build(doc, outdir):
     num = doc.get("document_number")
     body, note = "", None
-    xml_url = doc.get("full_text_xml_url")
     try:
-        if xml_url:
-            body, _ = xml_to_markdown(get_bytes(xml_url))
-        if not body.strip() and doc.get("raw_text_url"):
-            raw = get_bytes(doc["raw_text_url"]).decode("utf-8", "replace")
-            body = raw.strip()
-            note = "converted from raw text (no XML body)"
+        body, _ = xml_to_markdown(get_document_xml(doc))
+        if not body.strip():
+            body = get_document_text(doc)
+            note = "converted from GovInfo text (no XML body)"
     except Exception as exc:  # noqa: BLE001 - one bad doc must not kill the run
         try:
-            if doc.get("raw_text_url"):
-                body = get_bytes(doc["raw_text_url"]).decode("utf-8", "replace").strip()
-                note = f"XML failed ({exc}); used raw text"
+            body = get_document_text(doc)
+            note = f"GovInfo XML failed ({exc}); used GovInfo text"
         except Exception as exc2:  # noqa: BLE001
             body = ""
-            note = f"full text unavailable: {exc2}"
+            note = f"full text unavailable: GovInfo XML: {exc}; GovInfo text: {exc2}"
 
     md = f"# {doc.get('title', num)}\n\n{header(doc, body)}\n\n---\n\n{body}\n"
     if note:
